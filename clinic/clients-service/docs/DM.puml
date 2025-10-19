@@ -1,0 +1,29 @@
+@startuml Domain Model - Clients-Service
+class User {
+    - id: Long
+    - name: String
+    - email: String (unique)
+    - password: String
+    - role: Role
+    - token: String
+}
+
+class Patient {
+    - id: Long
+    - name: String
+    - birthDate: LocalDate
+    - contact: String
+    - insuranceInfo: String
+    - consent: boolean
+    - photoBase64: String
+    - healthConcerns: List<String>
+}
+
+enum Role {
+    ADMIN
+    PATIENT
+    PHYSICIAN
+}
+
+User ||--o{ Patient : "1..1 (user.patient)"
+@enduml

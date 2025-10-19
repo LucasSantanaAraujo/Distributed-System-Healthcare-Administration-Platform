@@ -1,0 +1,16 @@
+@startuml Sequence Diagram - Clients-Service (Register Patient)
+actor User
+participant AuthController
+participant UserRepository
+participant PatientRepository
+
+User -> AuthController: POST /register/patient (PatientRegisterRequest)
+AuthController -> AuthController: isPasswordValid(password)
+AuthController -> UserRepository: existsByEmail(email)
+UserRepository --> AuthController: false
+AuthController -> User: new User(email, password, Role.PATIENT)
+AuthController -> Patient: new Patient(name, birthDate, contact, ...)
+AuthController -> UserRepository: save(user)
+UserRepository --> AuthController: user saved
+AuthController --> User: ResponseEntity.ok(AuthResponse)
+@enduml

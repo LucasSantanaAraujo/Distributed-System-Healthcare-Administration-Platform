@@ -1,0 +1,38 @@
+@startuml Class Diagram - Clients-Service
+class AuthController {
+    - userRepository: UserRepository
+    - isPasswordValid(password: String): boolean
+    + register(request: AuthRequest): ResponseEntity<?>
+    + login(request: AuthRequest): ResponseEntity<?>
+    + registerPatient(request: PatientRegisterRequest): ResponseEntity<?>
+}
+
+class PatientController {
+    - userRepository: UserRepository
+    - patientRepository: PatientRepository
+    + getAllPatients(): ResponseEntity<List<PatientResponse>>
+    + getPatientById(id: Long): ResponseEntity<?>
+    + searchPatientsByName(name: String): ResponseEntity<?>
+    + updateMyData(id: Long, request: PatientUpdateRequest): ResponseEntity<?>
+}
+
+class UserRepository {
+    + findByEmail(email: String): Optional<User>
+    + existsByEmail(email: String): boolean
+}
+
+class PatientRepository {
+    + findByNameContainingIgnoreCase(name: String): List<Patient>
+    + findByUserEmail(email: String): Optional<Patient>
+}
+
+class InternalApiKeyFilter {
+    - internalApiKey: String
+    + doFilterInternal(request: HttpServletRequest, response: HttpServletResponse, chain: FilterChain): void
+}
+
+AuthController --> UserRepository
+PatientController --> UserRepository
+PatientController --> PatientRepository
+SecurityConfig --> InternalApiKeyFilter
+@enduml

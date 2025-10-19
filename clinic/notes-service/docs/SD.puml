@@ -1,0 +1,11 @@
+@startuml Sequence Diagram - Notes-Service (Create Record)
+actor Physician
+participant RecordController
+participant AppointmentRecordRepository
+
+Physician -> RecordController: POST /records (RecordRequest)
+RecordController -> AppointmentRecord: new AppointmentRecord(appointmentId, diagnosis, ...)
+RecordController -> AppointmentRecordRepository: save(record)
+AppointmentRecordRepository --> RecordController: record saved
+RecordController --> Physician: ResponseEntity.ok(record)
+@enduml

@@ -1,0 +1,13 @@
+@startuml Class Diagram - Notes-Service
+class RecordController {
+    - repository: AppointmentRecordRepository
+    + createRecord(request: RecordRequest): ResponseEntity<?>
+    + getRecordByAppointment(appointmentId: Long): ResponseEntity<?>
+}
+
+class AppointmentRecordRepository {
+    + findByAppointmentId(appointmentId: Long): Optional<AppointmentRecord>
+}
+
+RecordController --> AppointmentRecordRepository
+@enduml

@@ -1,0 +1,10 @@
+@startuml Domain Model - Notes-Service
+class AppointmentRecord {
+    - id: Long
+    - appointmentId: Long (remote reference)
+    - diagnosis: String
+    - treatment: String
+    - prescription: String
+    - createdAt: LocalDateTime
+}
+@enduml

@@ -1,0 +1,38 @@
+@startuml Class Diagram - Doctors-Service
+class PhysicianController {
+    - physicianRepository: PhysicianRepository
+    + createPhysician(request: PhysicianRequest): ResponseEntity<?>
+    + getPhysicianById(id: Long): ResponseEntity<?>
+    + updatePhysician(id: Long, request: PhysicianRequest): ResponseEntity<?>
+}
+
+class AppointmentController {
+    - appointmentRepository: AppointmentRepository
+    - physicianRepository: PhysicianRepository
+    - clientsServiceClient: ClientsServiceClient
+    + adminScheduleAppointment(request: AdminAppointmentRequest): ResponseEntity<?>
+    + getAvailableSlots(id: Long, date: LocalDate): ResponseEntity<?>
+    + getAppointmentById(id: Long): ResponseEntity<?>
+}
+
+class ClientsServiceClient {
+    - webClient: WebClient
+    - internalApiKey: String
+    + getPatientById(id: Long): PatientClientResponse
+}
+
+class PhysicianRepository {
+    + findById(id: Long): Optional<Physician>
+}
+
+class AppointmentRepository {
+    + findByPhysicianAndDateTimeBetween(physician: Physician, start: LocalDateTime, end: LocalDateTime): List<Appointment>
+    + existsByPhysicianAndDateTime(physician: Physician, dateTime: LocalDateTime): boolean
+}
+
+PhysicianController --> PhysicianRepository
+AppointmentController --> AppointmentRepository
+AppointmentController --> PhysicianRepository
+AppointmentController --> ClientsServiceClient
+ClientsServiceClient --> WebClient
+@enduml

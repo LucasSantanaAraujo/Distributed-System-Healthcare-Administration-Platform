@@ -1,74 +1,62 @@
 package com.psoft.clinic.security;
 
-// import com.psoft.clinic.model.User; // ⚠️ Classe removida deste serviço
 import io.jsonwebtoken.*;
+import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
-
+import java.nio.charset.StandardCharsets;
 import java.util.Date;
-
-/**
- * Classe de utilitários JWT (autenticação).
- * ⚠️ O doctors-service já não gere autenticação nem tokens JWT.
- * Este ficheiro é deixado comentado para referência futura.
- *
- * Será migrado para o auth-service quando a divisão estiver concluída.
- */
+import javax.crypto.SecretKey;
+import com.psoft.clinic.model.User;
 
 @Component
 public class JwtUtil {
 
-    @Value("${app.jwt.secret:dummy-secret}")
+    @Value("${app.jwt.secret}")
     private String jwtSecret;
 
-    @Value("${app.jwt.expiration:86400000}") // 1 dia por defeito
-    private int jwtExpirationMs;
+    @Value("${app.jwt.expiration}")
+    private long jwtExpiration;
 
-    // 🔸 Método original dependia de com.psoft.clinic.model.User
-    //    Por agora, deixamos desativado.
-    /*
+    private SecretKey getSigningKey() {
+        return Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
+    }
+
     public String generateToken(User user) {
         return Jwts.builder()
                 .setSubject(user.getEmail())
-                .claim("role", user.getRole().name())
+                .claim("role", user.getRole().name().replace("ROLE_", ""))
                 .setIssuedAt(new Date())
-                .setExpiration(new Date(System.currentTimeMillis() + jwtExpirationMs))
-                .signWith(SignatureAlgorithm.HS512, jwtSecret.getBytes())
+                .setExpiration(new Date(System.currentTimeMillis() + jwtExpiration))
+                .signWith(getSigningKey(), SignatureAlgorithm.HS512)
                 .compact();
     }
-    */
 
-    // 🔹 Estes métodos não dependem de User e podem ficar ativos
-    public String extractRole(String token) {
-        try {
-            return Jwts.parser()
-                    .setSigningKey(jwtSecret.getBytes())
-                    .parseClaimsJws(token)
-                    .getBody()
-                    .get("role", String.class);
-        } catch (JwtException e) {
-            return null;
-        }
+    public String getRoleFromToken(String token) {
+        return (String) Jwts.parser()
+                .setSigningKey(getSigningKey()) // ✅ corrigido
+                .parseClaimsJws(token)
+                .getBody()
+                .get("role");
     }
 
     public String getEmailFromToken(String token) {
-        try {
-            return Jwts.parser()
-                    .setSigningKey(jwtSecret.getBytes())
-                    .parseClaimsJws(token)
-                    .getBody()
-                    .getSubject();
-        } catch (JwtException e) {
-            return null;
-        }
+        return Jwts.parser()
+                .setSigningKey(getSigningKey()) // ✅ corrigido
+                .parseClaimsJws(token)
+                .getBody()
+                .getSubject();
     }
 
     public boolean validateToken(String token) {
         try {
-            Jwts.parser().setSigningKey(jwtSecret.getBytes())
+            Jwts.parserBuilder()
+                    .setSigningKey(getSigningKey()) // ✅ corrigido
+                    .build()
                     .parseClaimsJws(token);
             return true;
         } catch (JwtException | IllegalArgumentException e) {
+            System.out.println("❌ Falha na validação do token: " + e.getMessage());
             return false;
         }
     }

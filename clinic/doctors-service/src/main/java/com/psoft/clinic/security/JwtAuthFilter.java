@@ -1,16 +1,13 @@
 package com.psoft.clinic.security;
 
-import io.jsonwebtoken.Jwts;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpHeaders;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.User;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -19,11 +16,13 @@ import java.io.IOException;
 import java.util.List;
 
 @Component
-@RequiredArgsConstructor
 public class JwtAuthFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;
-    private final UserDetailsService userDetailsService;
+
+    public JwtAuthFilter(JwtUtil jwtUtil) {
+        this.jwtUtil = jwtUtil;
+    }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -31,43 +30,46 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                                     FilterChain filterChain)
             throws ServletException, IOException {
 
-        // Ignorar login e registo
-        String path = request.getServletPath();
-        if (path.startsWith("/login") || path.startsWith("/register")) {
-            filterChain.doFilter(request, response);
-            return;
-        }
+        String authHeader = request.getHeader("Authorization");
 
-        final String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
+        try {
+            if (authHeader != null && authHeader.startsWith("Bearer ")) {
+                String token = authHeader.substring(7);
+                System.out.println("🎟️ Token recebido: " + token);
 
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            filterChain.doFilter(request, response);
-            return;
-        }
+                if (jwtUtil.validateToken(token)) {
+                    System.out.println("✅ Token válido!");
 
-        final String token = authHeader.substring(7);
-        final String email = jwtUtil.getEmailFromToken(token);
+                    String email = jwtUtil.getEmailFromToken(token);
+                    String role = jwtUtil.getRoleFromToken(token);
 
-        if (email != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-            var userDetails = userDetailsService.loadUserByUsername(email);
-            if (jwtUtil.validateToken(token)) {
-                String role = jwtUtil.extractRole(token);
+                    System.out.println("📧 Email extraído: " + email);
+                    System.out.println("🧩 Role extraída do token: " + role);
 
+                    String authority = role.startsWith("ROLE_") ? role : "ROLE_" + role;
+                    System.out.println("🔐 Autoridade final atribuída: " + authority);
 
-                UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
-                        userDetails,
-                        null,
-                        List.of(new SimpleGrantedAuthority("ROLE_" + role))
-                );
+                    List<SimpleGrantedAuthority> authorities =
+                            List.of(new SimpleGrantedAuthority(authority));
 
-                authToken.setDetails(
-                        new WebAuthenticationDetailsSource().buildDetails(request)
-                );
-                SecurityContextHolder.getContext().setAuthentication(authToken);
+                    User user = new User(email, "", authorities);
+
+                    UsernamePasswordAuthenticationToken auth =
+                            new UsernamePasswordAuthenticationToken(user, null, authorities);
+                    auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+
+                    SecurityContextHolder.getContext().setAuthentication(auth);
+                    System.out.println("✅ Utilizador autenticado no SecurityContext.");
+                } else {
+                    System.out.println("❌ Token inválido!");
+                }
+            } else {
+                System.out.println("⚠️ Nenhum header Authorization encontrado!");
             }
+        } catch (Exception e) {
+            System.out.println("⚠️ Erro ao processar JWT: " + e.getMessage());
         }
 
         filterChain.doFilter(request, response);
     }
-
 }

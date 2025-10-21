@@ -3,20 +3,18 @@ package com.psoft.clinic.controller;
 import com.psoft.clinic.dto.PatientResponse;
 import com.psoft.clinic.dto.PatientUpdateRequest;
 import com.psoft.clinic.model.Patient;
+import com.psoft.clinic.model.User;
 import com.psoft.clinic.repository.PatientRepository;
 import com.psoft.clinic.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.security.Principal;
 import java.util.List;
-
-/**
- * Controlador responsável pelos endpoints de pacientes.
- *
- * ⚙️ Mantém os mesmos endpoints originais (/patients, /patients/{id}, etc.)
- * mas sem autenticação JWT nesta fase.
- */
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/patients")
@@ -26,9 +24,48 @@ public class PatientController {
     private final UserRepository userRepository;
     private final PatientRepository patientRepository;
 
+    @Value("${internal.api.key}")
+    private String internalApiKey;
+
     // ------------------------------------------------------------------------
-    // 🔹 LISTAR TODOS OS PACIENTES
+    // 🔹 ENDPOINTS INTERNOS (para outros serviços)
     // ------------------------------------------------------------------------
+
+    /**
+     * Endpoint interno — usado por appointments-service para buscar dados do paciente.
+     */
+    @GetMapping("/{id}")
+    public ResponseEntity<?> getPatientById(
+            @PathVariable Long id,
+            @RequestHeader(value = "X-INTERNAL-KEY", required = false) String internalKey) {
+
+        if (internalKey == null || !internalKey.equals(internalApiKey)) {
+            return ResponseEntity.status(403).body("Acesso não autorizado (chave interna inválida).");
+        }
+
+        Optional<Patient> opt = patientRepository.findById(id);
+        if (opt.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+
+        Patient p = opt.get();
+        PatientResponse response = PatientResponse.builder()
+                .id(p.getId())
+                .name(p.getName())
+                .email(p.getUser().getEmail())
+                .birthDate(p.getBirthDate())
+                .phone(p.getContact())
+                .insuranceInfo(p.getInsuranceInfo())
+                .build();
+
+        return ResponseEntity.ok(response);
+    }
+
+    // ------------------------------------------------------------------------
+    // 🔹 ENDPOINTS ADMINISTRATIVOS / LOCAIS
+    // ------------------------------------------------------------------------
+
+    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping
     public ResponseEntity<List<PatientResponse>> getAllPatients() {
         var patients = userRepository.findAll().stream()
@@ -46,33 +83,7 @@ public class PatientController {
         return ResponseEntity.ok(patients);
     }
 
-    // ------------------------------------------------------------------------
-    // 🔹 OBTER PACIENTE POR ID
-    // ------------------------------------------------------------------------
-    @GetMapping("/{id}")
-    public ResponseEntity<?> getPatientById(@PathVariable Long id) {
-        var patientOpt = patientRepository.findById(id);
-        if (patientOpt.isEmpty()) {
-            return ResponseEntity.notFound().build();
-        }
-
-        var p = patientOpt.get();
-
-        PatientResponse response = PatientResponse.builder()
-                .id(p.getId())
-                .name(p.getName())
-                .email(p.getUser() != null ? p.getUser().getEmail() : "(sem email)")
-                .birthDate(p.getBirthDate())
-                .phone(p.getContact())
-                .insuranceInfo(p.getInsuranceInfo())
-                .build();
-
-        return ResponseEntity.ok(response);
-    }
-
-    // ------------------------------------------------------------------------
-    // 🔹 PROCURAR PACIENTES POR NOME
-    // ------------------------------------------------------------------------
+    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/search")
     public ResponseEntity<?> searchPatientsByName(@RequestParam String name) {
         var matches = patientRepository.findByNameContainingIgnoreCase(name);
@@ -81,7 +92,7 @@ public class PatientController {
                 PatientResponse.builder()
                         .id(p.getId())
                         .name(p.getName())
-                        .email(p.getUser() != null ? p.getUser().getEmail() : "(sem email)")
+                        .email(p.getUser().getEmail())
                         .birthDate(p.getBirthDate())
                         .phone(p.getContact())
                         .insuranceInfo(p.getInsuranceInfo())
@@ -92,29 +103,39 @@ public class PatientController {
     }
 
     // ------------------------------------------------------------------------
-    // 🔹 ATUALIZAR DADOS DO PACIENTE
+    // 🔹 ATUALIZAÇÃO DO PERFIL PELO PACIENTE
     // ------------------------------------------------------------------------
+
+    @PreAuthorize("hasRole('PATIENT')")
     @PutMapping("/{id}")
-    public ResponseEntity<?> updateMyData(@PathVariable Long id,
-                                          @RequestBody PatientUpdateRequest request) {
+    public ResponseEntity<?> updateMyData(
+            @PathVariable Long id,
+            @RequestBody PatientUpdateRequest request,
+            Principal principal) {
+
         var patientOpt = patientRepository.findById(id);
         if (patientOpt.isEmpty()) {
             return ResponseEntity.notFound().build();
         }
 
         Patient patient = patientOpt.get();
+        var loggedUserOpt = userRepository.findByEmail(principal.getName());
+        if (loggedUserOpt.isEmpty()) {
+            return ResponseEntity.status(401).body("Unauthorized");
+        }
 
-        // ⚠️ No futuro será validado com JWT (auth-service)
-        // Por agora, apenas atualizamos os dados diretamente.
+        var loggedUser = loggedUserOpt.get();
+        if (!patient.getUser().getId().equals(loggedUser.getId())) {
+            return ResponseEntity.status(403).body("Forbidden");
+        }
 
         patient.setName(request.getName());
         patient.setContact(request.getPhone());
         patient.setInsuranceInfo(request.getInsuranceInfo());
         patient.setPhotoBase64(request.getPhotoBase64());
         patient.setHealthConcerns(request.getHealthConcerns());
-
         patientRepository.save(patient);
 
-        return ResponseEntity.ok("Patient updated successfully");
+        return ResponseEntity.ok("Dados do paciente atualizados com sucesso.");
     }
 }

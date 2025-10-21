@@ -1,0 +1,27 @@
+@startuml C4+1 System Context Diagram - HAP (Health Appointment Platform)
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+Person(patient, "Paciente", "Usuário que agenda consultas, vê dados pessoais e acessa registros médicos")
+Person(physician, "Médico", "Profissional que gere consultas, pacientes e cria registros médicos")
+Person(admin, "Administrador", "Usuário que gere médicos, pacientes, consultas e sistema geral")
+
+System(hap_system, "HAP (Health Appointment Platform)", "Sistema distribuído para gestão de consultas médicas, segregado em microserviços Spring Boot")
+
+Rel(patient, hap_system, "Agenda consultas, registra-se, vê dados pessoais e registros", "HTTP/REST")
+Rel(physician, hap_system, "Gere consultas, pacientes e registros médicos", "HTTP/REST")
+Rel(admin, hap_system, "Administra médicos, pacientes, consultas e configurações do sistema", "HTTP/REST")
+
+System_Boundary(hap_internal, "Microserviços Internos (Containers)") {
+    Container(clients_service, "Clients-Service", "Spring Boot (Java + Maven)", "Gerencia autenticação e dados de pacientes/usuários")
+    Container(doctors_service, "Doctors-Service", "Spring Boot (Java + Maven)", "Gerencia dados de médicos")
+    Container(appointments_service, "Appointments-Service", "Spring Boot (Java + Maven)", "Gerencia agendamentos de consultas")
+    Container(notes_service, "Notes-Service", "Spring Boot (Java + Maven)", "Gerencia registros médicos de consultas")
+    Container(security_service, "Security-Service", "Spring Boot (Java + Maven)", "Gerencia autenticação JWT e segurança global")
+}
+
+Rel(hap_system, clients_service, "Inclui", "")
+Rel(hap_system, doctors_service, "Inclui", "")
+Rel(hap_system, appointments_service, "Inclui", "")
+Rel(hap_system, notes_service, "Inclui", "")
+Rel(hap_system, security_service, "Inclui", "")
+@enduml

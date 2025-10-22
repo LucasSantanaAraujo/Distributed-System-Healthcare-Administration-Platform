@@ -1,38 +1,26 @@
-@startuml Class Diagram - Doctors-Service
+@startuml UML Class Diagram - Doctors-Service
+class Physician {
+    - Long id
+    - String name
+    - Specialty specialty
+    + Physician()
+    + Physician(String name, Specialty specialty)
+}
+
+class Specialty {
+    - Long id
+    - String name
+    + Specialty()
+    + Specialty(String name)
+}
+
 class PhysicianController {
-    - physicianRepository: PhysicianRepository
-    + createPhysician(request: PhysicianRequest): ResponseEntity<?>
-    + getPhysicianById(id: Long): ResponseEntity<?>
-    + updatePhysician(id: Long, request: PhysicianRequest): ResponseEntity<?>
+    - PhysicianRepository physicianRepository
+    + ResponseEntity<List<PhysicianResponse>> getAllPhysicians()
+    + ResponseEntity<?> getPhysicianById(Long id)
+    + ResponseEntity<?> createPhysician(PhysicianRequest request)
 }
 
-class AppointmentController {
-    - appointmentRepository: AppointmentRepository
-    - physicianRepository: PhysicianRepository
-    - clientsServiceClient: ClientsServiceClient
-    + adminScheduleAppointment(request: AdminAppointmentRequest): ResponseEntity<?>
-    + getAvailableSlots(id: Long, date: LocalDate): ResponseEntity<?>
-    + getAppointmentById(id: Long): ResponseEntity<?>
-}
-
-class ClientsServiceClient {
-    - webClient: WebClient
-    - internalApiKey: String
-    + getPatientById(id: Long): PatientClientResponse
-}
-
-class PhysicianRepository {
-    + findById(id: Long): Optional<Physician>
-}
-
-class AppointmentRepository {
-    + findByPhysicianAndDateTimeBetween(physician: Physician, start: LocalDateTime, end: LocalDateTime): List<Appointment>
-    + existsByPhysicianAndDateTime(physician: Physician, dateTime: LocalDateTime): boolean
-}
-
-PhysicianController --> PhysicianRepository
-AppointmentController --> AppointmentRepository
-AppointmentController --> PhysicianRepository
-AppointmentController --> ClientsServiceClient
-ClientsServiceClient --> WebClient
+Physician "1" -- "1" Specialty : associação
+PhysicianController ..> PhysicianRepository : utiliza
 @enduml

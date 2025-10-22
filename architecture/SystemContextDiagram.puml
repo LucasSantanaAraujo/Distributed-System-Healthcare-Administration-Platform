@@ -16,12 +16,12 @@ System_Boundary(hap_internal, "Microserviços Internos (Containers)") {
     Container(doctors_service, "Doctors-Service", "Spring Boot (Java + Maven)", "Gerencia dados de médicos")
     Container(appointments_service, "Appointments-Service", "Spring Boot (Java + Maven)", "Gerencia agendamentos de consultas")
     Container(notes_service, "Notes-Service", "Spring Boot (Java + Maven)", "Gerencia registros médicos de consultas")
-    Container(security_service, "Security-Service", "Spring Boot (Java + Maven)", "Gerencia autenticação JWT e segurança global")
+    Container(auth_service, "Auth-Service", "Spring Boot (Java + Maven)", "Gerencia autenticação JWT e segurança global")
 }
 
 Rel(hap_system, clients_service, "Inclui", "")
 Rel(hap_system, doctors_service, "Inclui", "")
 Rel(hap_system, appointments_service, "Inclui", "")
 Rel(hap_system, notes_service, "Inclui", "")
-Rel(hap_system, security_service, "Inclui", "")
+Rel(hap_system, auth_service, "Inclui", "")
 @enduml

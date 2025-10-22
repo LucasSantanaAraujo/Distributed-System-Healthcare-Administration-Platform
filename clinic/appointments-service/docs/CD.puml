@@ -1,0 +1,22 @@
+@startuml UML Class Diagram - Appointments-Service
+class Appointment {
+    - Long id
+    - Long patientId
+    - Long physicianId
+    - LocalDateTime dateTime
+    - AppointmentStatus status
+    + Appointment()
+    + Appointment(Long patientId, Long physicianId, LocalDateTime dateTime, AppointmentStatus status)
+}
+
+class AppointmentController {
+    - AppointmentRepository appointmentRepository
+    - ClientsServiceClient clientsServiceClient
+    + ResponseEntity<List<AppointmentResponse>> getAllAppointments()
+    + ResponseEntity<?> createAppointment(AppointmentRequest request)
+    + ResponseEntity<?> updateAppointment(Long id, UpdateAppointmentRequest request)
+}
+
+AppointmentController ..> AppointmentRepository : usa
+AppointmentController ..> ClientsServiceClient : usa (forwarding)
+@enduml

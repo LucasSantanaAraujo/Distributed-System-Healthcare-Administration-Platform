@@ -3,6 +3,7 @@ package com.psoft.clinic.model;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
@@ -24,4 +25,18 @@ public class Appointment {
 
     @Enumerated(EnumType.STRING)
     private AppointmentStatus status;
+
+    @Column(name = "patient_birth_date")
+    private LocalDate patientBirthDate;
+
+    @Column(name = "record_created_at")
+    private LocalDateTime recordCreatedAt;
+
+    public LocalDate getPatientBirthDate() {
+        return patientBirthDate;
+    }
+
+    public LocalDateTime getRecordCreatedAt() {
+        return recordCreatedAt;
+    }
 }

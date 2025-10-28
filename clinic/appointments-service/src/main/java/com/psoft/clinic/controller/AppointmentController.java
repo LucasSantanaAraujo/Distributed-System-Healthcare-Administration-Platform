@@ -2,11 +2,7 @@ package com.psoft.clinic.controller;
 
 import com.psoft.clinic.client.ClientsServiceClient;
 import com.psoft.clinic.client.DoctorsServiceClient;
-import com.psoft.clinic.dto.AdminAppointmentRequest;
-import com.psoft.clinic.dto.AppointmentResponse;
-import com.psoft.clinic.dto.PatientAppointmentRequest;
-import com.psoft.clinic.dto.PatientClientResponse;
-import com.psoft.clinic.dto.PhysicianClientResponse;
+import com.psoft.clinic.dto.*;
 import com.psoft.clinic.model.Appointment;
 import com.psoft.clinic.model.AppointmentStatus;
 import com.psoft.clinic.repository.AppointmentRepository;
@@ -15,10 +11,14 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import java.time.Period;
+import java.util.*;
+
 
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/appointments")
@@ -208,4 +208,51 @@ public class AppointmentController {
             return ResponseEntity.badRequest().body("Status inválido. Use CONFIRMED, CANCELLED ou RESCHEDULED.");
         }
     }
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @GetMapping("/admin/statistics/age-groups")
+    public ResponseEntity<?> getAppointmentStatisticsByAgeGroup() {
+        List<Appointment> appointments = appointmentRepository.findAll();
+
+        if (appointments.isEmpty()) {
+            return ResponseEntity.ok(Collections.emptyList());
+        }
+
+        // ⚙️ Agrupamento por faixa etária
+        Map<String, List<Appointment>> grouped = new HashMap<>();
+
+        for (Appointment appointment : appointments) {
+            // ⚠️ Garante que temos data de nascimento
+            if (appointment.getPatientBirthDate() == null) continue;
+
+            int age = Period.between(appointment.getPatientBirthDate(), appointment.getDateTime().toLocalDate()).getYears();
+
+            String group;
+            if (age < 18) group = "Under 18";
+            else if (age <= 30) group = "18–30";
+            else if (age <= 50) group = "31–50";
+            else group = "Above 50";
+
+            grouped.computeIfAbsent(group, k -> new ArrayList<>()).add(appointment);
+        }
+
+        // 📊 Monta resposta com total e duração média
+        List<AgeGroupStatisticsResponse> results = grouped.entrySet().stream()
+                .map(entry -> {
+                    List<Appointment> groupAppointments = entry.getValue();
+                    int total = groupAppointments.size();
+
+                    double avgDuration = groupAppointments.stream()
+                            .filter(app -> app.getRecordCreatedAt() != null)
+                            .mapToLong(app -> java.time.Duration.between(app.getDateTime(), app.getRecordCreatedAt()).toMinutes())
+                            .average()
+                            .orElse(0);
+
+                    return new AgeGroupStatisticsResponse(entry.getKey(), total, avgDuration);
+                })
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(results);
+    }
 }
+

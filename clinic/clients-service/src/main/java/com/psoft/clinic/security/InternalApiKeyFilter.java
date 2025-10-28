@@ -19,21 +19,30 @@ public class InternalApiKeyFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
-        System.out.println("🔍 InternalApiKeyFilter executado para: " + request.getRequestURI());
 
-
+        String uri = request.getRequestURI();
         String headerKey = request.getHeader("X-INTERNAL-KEY");
+        String authHeader = request.getHeader("Authorization");
 
-        // Apenas protege endpoints internos
-        if (request.getRequestURI().startsWith("/patients")) {
-            if (headerKey == null || !headerKey.equals(internalApiKey)) {
+        System.out.println("🔍 [InternalApiKeyFilter] URI: " + uri);
+        System.out.println("   ➤ X-INTERNAL-KEY: " + headerKey);
+        System.out.println("   ➤ Authorization: " + authHeader);
+
+        // 👉 Só valida a chave se for uma chamada interna (tiver o header X-INTERNAL-KEY)
+        if (headerKey != null) {
+            if (!headerKey.equals(internalApiKey)) {
+                System.out.println("🚫 [InternalApiKeyFilter] Chave interna inválida!");
                 response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                response.getWriter().write("Acesso não autorizado (chave interna inválida)");
+                response.getWriter().write("{\"error\":\"Chave interna inválida.\"}");
                 return;
+            } else {
+                System.out.println("✅ [InternalApiKeyFilter] Chave interna válida — acesso interno permitido.");
             }
+        } else {
+            // 👉 Se não tiver X-INTERNAL-KEY, deixamos o Spring Security tratar o JWT
+            System.out.println("ℹ️ [InternalApiKeyFilter] Sem X-INTERNAL-KEY — pedido com JWT, a ignorar filtro interno.");
         }
 
         filterChain.doFilter(request, response);
     }
 }
-

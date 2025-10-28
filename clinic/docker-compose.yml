@@ -1,0 +1,70 @@
+version: "3.9"
+
+services:
+  auth-service:
+    build: ./auth-service
+    container_name: auth-service
+    environment:
+      - SERVER_PORT=0
+    networks:
+      - clinic-net
+    expose:
+      - "8080" # expõe apenas para a rede interna Docker (não para o host)
+
+  doctors-service:
+    build: ./doctors-service
+    container_name: doctors-service
+    environment:
+      - SERVER_PORT=0
+    networks:
+      - clinic-net
+    expose:
+      - "8080"
+    depends_on:
+      - auth-service
+
+  clients-service:
+    build: ./clients-service
+    container_name: clients-service
+    environment:
+      - SERVER_PORT=0
+    networks:
+      - clinic-net
+    expose:
+      - "8080"
+    depends_on:
+      - doctors-service
+      - auth-service
+
+  appointments-service:
+    build: ./appointments-service
+    container_name: appointments-service
+    environment:
+      - SERVER_PORT=0
+    networks:
+      - clinic-net
+    expose:
+      - "8080"
+    depends_on:
+      - clients-service
+      - doctors-service
+      - auth-service
+
+  notes-service:
+    build: ./notes-service
+    container_name: notes-service
+    environment:
+      - SERVER_PORT=0
+    networks:
+      - clinic-net
+    expose:
+      - "8080"
+    depends_on:
+      - appointments-service
+      - auth-service
+
+# 🌐 rede interna Docker (para comunicação entre serviços)
+networks:
+  clinic-net:
+    driver: bridge
+  

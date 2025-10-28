@@ -1,38 +1,45 @@
-@startuml Class Diagram - Clients-Service
+@startuml UML Class Diagram - Clients-Service
+class User {
+    - Long id
+    - String name
+    - String email
+    - String password
+    - Role role
+    - Patient patient
+    + User()
+    + User(String name, String email, String password, Role role)
+}
+
+class Patient {
+    - Long id
+    - String name
+    - LocalDate birthDate
+    - String contact
+    - String insuranceInfo
+    - boolean consent
+    - User user
+    + Patient()
+    + Patient(String name, LocalDate birthDate, String contact, String insuranceInfo, boolean consent)
+}
+
 class AuthController {
-    - userRepository: UserRepository
-    - isPasswordValid(password: String): boolean
-    + register(request: AuthRequest): ResponseEntity<?>
-    + login(request: AuthRequest): ResponseEntity<?>
-    + registerPatient(request: PatientRegisterRequest): ResponseEntity<?>
+    - UserRepository userRepository
+    + ResponseEntity<?> register(AuthRequest request, String authHeader)
+    + ResponseEntity<?> login(AuthRequest request)
+    + ResponseEntity<?> registerPatient(PatientRegisterRequest request)
 }
 
 class PatientController {
-    - userRepository: UserRepository
-    - patientRepository: PatientRepository
-    + getAllPatients(): ResponseEntity<List<PatientResponse>>
-    + getPatientById(id: Long): ResponseEntity<?>
-    + searchPatientsByName(name: String): ResponseEntity<?>
-    + updateMyData(id: Long, request: PatientUpdateRequest): ResponseEntity<?>
+    - UserRepository userRepository
+    - PatientRepository patientRepository
+    + ResponseEntity<List<PatientResponse>> getAllPatients()
+    + ResponseEntity<?> getPatientById(Long id)
+    + ResponseEntity<?> searchPatientsByName(String name)
+    + ResponseEntity<?> updateMyData(Long id, PatientUpdateRequest request)
 }
 
-class UserRepository {
-    + findByEmail(email: String): Optional<User>
-    + existsByEmail(email: String): boolean
-}
-
-class PatientRepository {
-    + findByNameContainingIgnoreCase(name: String): List<Patient>
-    + findByUserEmail(email: String): Optional<Patient>
-}
-
-class InternalApiKeyFilter {
-    - internalApiKey: String
-    + doFilterInternal(request: HttpServletRequest, response: HttpServletResponse, chain: FilterChain): void
-}
-
-AuthController --> UserRepository
-PatientController --> UserRepository
-PatientController --> PatientRepository
-SecurityConfig --> InternalApiKeyFilter
+User "1" -- "0..1" Patient : composição
+AuthController ..> UserRepository : utiliza
+PatientController ..> UserRepository : utiliza
+PatientController ..> PatientRepository : utiliza
 @enduml

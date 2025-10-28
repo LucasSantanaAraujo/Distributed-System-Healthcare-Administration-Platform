@@ -1,0 +1,12 @@
+@startuml Sequence Diagram - Criação de Registro Médico
+actor Médico
+participant NotesService
+participant AppointmentsService
+participant NotesDB
+
+Médico -> NotesService: POST /records (dados registro)
+NotesService -> AppointmentsService: GET /appointments/{id} (valida consulta)
+AppointmentsService --> NotesService: Retorna dados consulta
+NotesService -> NotesDB: Salva AppointmentRecord
+NotesService --> Médico: Retorna sucesso
+@enduml

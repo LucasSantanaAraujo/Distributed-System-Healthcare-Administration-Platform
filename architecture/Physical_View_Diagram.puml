@@ -1,0 +1,46 @@
+@startuml Physical View - Deployment Diagram (HAP)
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+' Servidores genéricos (para implantação física)
+node "Servidor 1" as server1 {
+    artifact "Clients-Service Instância 1\nSpring Boot JAR\nPorta 8082" as clients_inst1
+    artifact "Clients-Service Instância 2\nSpring Boot JAR\nPorta 8082" as clients_inst2
+}
+
+node "Servidor 2" as server2 {
+    artifact "Doctors-Service Instância 1\nSpring Boot JAR\nPorta 8081" as doctors_inst1
+    artifact "Appointments-Service Instância 1\nSpring Boot JAR\nPorta 8083" as appointments_inst1
+}
+
+node "Servidor 3" as server3 {
+    artifact "Notes-Service Instância 1\nSpring Boot JAR\nPorta 8084" as notes_inst1
+    artifact "Auth-Service Instância 1\nSpring Boot JAR\nPorta 8085" as auth_inst1
+}
+
+' DBs H2 isolados (único DB usado)
+database "Clients DB\nH2\nDados pacientes/usuários" as clients_db
+database "Doctors DB\nH2\nDados médicos" as doctors_db
+database "Appointments DB\nH2\nDados consultas" as appointments_db
+database "Notes DB\nH2\nDados registros" as notes_db
+database "Auth DB\nH2\nDados segurança" as auth_db
+
+' Load Balancer genérico
+rectangle "Load Balancer" as lb
+
+' Relacionamentos
+lb --> server1 : Distribui tráfego\nHTTP
+lb --> server2 : Distribui tráfego\nHTTP
+lb --> server3 : Distribui tráfego\nHTTP
+
+clients_inst1 --> clients_db : Lê/escreve\nJDBC
+clients_inst2 --> clients_db : Lê/escreve\nJDBC
+doctors_inst1 --> doctors_db : Lê/escreve\nJDBC
+appointments_inst1 --> appointments_db : Lê/escreve\nJDBC
+notes_inst1 --> notes_db : Lê/escreve\nJDBC
+auth_inst1 --> auth_db : Lê/escreve\nJDBC
+
+' Comunicação entre serviços
+clients_inst1 --> auth_inst1 : Valida tokens\nHTTP/REST
+appointments_inst1 --> clients_inst1 : Consulta pacientes\nHTTP/REST
+notes_inst1 --> appointments_inst1 : Consulta consultas\nHTTP/REST
+@enduml

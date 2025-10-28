@@ -1,13 +1,20 @@
-@startuml Class Diagram - Notes-Service
+@startuml UML Class Diagram - Notes-Service
+class AppointmentRecord {
+    - Long id
+    - Long appointmentId
+    - String diagnosis
+    - String treatment
+    - String prescription
+    - LocalDateTime createdAt
+    + AppointmentRecord()
+    + AppointmentRecord(Long appointmentId, String diagnosis, String treatment, String prescription)
+}
+
 class RecordController {
-    - repository: AppointmentRecordRepository
-    + createRecord(request: RecordRequest): ResponseEntity<?>
-    + getRecordByAppointment(appointmentId: Long): ResponseEntity<?>
+    - AppointmentRecordRepository repository
+    + ResponseEntity<?> createRecord(RecordRequest request)
+    + ResponseEntity<?> getRecordByAppointment(Long appointmentId)
 }
 
-class AppointmentRecordRepository {
-    + findByAppointmentId(appointmentId: Long): Optional<AppointmentRecord>
-}
-
-RecordController --> AppointmentRecordRepository
+RecordController ..> AppointmentRecordRepository : usa
 @enduml

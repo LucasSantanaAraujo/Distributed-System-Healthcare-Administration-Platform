@@ -10,6 +10,7 @@ node "Servidor 1" as server1 {
 node "Servidor 2" as server2 {
     artifact "Doctors-Service Instância 1\nSpring Boot JAR\nPorta 8081" as doctors_inst1
     artifact "Appointments-Service Instância 1\nSpring Boot JAR\nPorta 8083" as appointments_inst1
+    artifact "Appointments-Service Instância 2\nSpring Boot JAR\nPorta 8083" as appointments_inst2
 }
 
 node "Servidor 3" as server3 {
@@ -27,7 +28,7 @@ database "Auth DB\nH2\nDados segurança" as auth_db
 ' Load Balancer genérico
 rectangle "Load Balancer" as lb
 
-' Relacionamentos
+' Relações
 lb --> server1 : Distribui tráfego\nHTTP
 lb --> server2 : Distribui tráfego\nHTTP
 lb --> server3 : Distribui tráfego\nHTTP
@@ -36,6 +37,7 @@ clients_inst1 --> clients_db : Lê/escreve\nJDBC
 clients_inst2 --> clients_db : Lê/escreve\nJDBC
 doctors_inst1 --> doctors_db : Lê/escreve\nJDBC
 appointments_inst1 --> appointments_db : Lê/escreve\nJDBC
+appointments_inst2 --> appointments_db : Lê/escreve\nJDBC
 notes_inst1 --> notes_db : Lê/escreve\nJDBC
 auth_inst1 --> auth_db : Lê/escreve\nJDBC
 

@@ -11,6 +11,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+
+import java.time.LocalDate;
 import java.time.Period;
 import java.util.*;
 
@@ -43,13 +45,17 @@ public class AppointmentController {
             return ResponseEntity.status(404).body("Paciente não encontrado no clients-service.");
         }
 
+        // ✅ Já vem como LocalDate — nada de parse manual
+        LocalDate birthDate = patient.getBirthDate();
+
+
         // 2) validar médico no doctors-service
         PhysicianClientResponse physician = doctorsServiceClient.getPhysicianById(request.getPhysicianId());
         if (physician == null) {
             return ResponseEntity.status(404).body("Médico não encontrado no doctors-service.");
         }
 
-        // 3) conflitos
+        // 3) verificar conflitos de horários
         if (appointmentRepository.existsByPhysicianIdAndDateTime(request.getPhysicianId(), dateTime)) {
             return ResponseEntity.badRequest().body("O médico já tem consulta nesse horário.");
         }
@@ -57,17 +63,19 @@ public class AppointmentController {
             return ResponseEntity.badRequest().body("O paciente já tem consulta nesse horário.");
         }
 
-        // 4) guardar
+        // 4) guardar na BD
         Appointment appt = Appointment.builder()
                 .dateTime(dateTime)
                 .reason(request.getReason())
                 .status(AppointmentStatus.CONFIRMED)
                 .patientId(request.getPatientId())
                 .physicianId(request.getPhysicianId())
+                .patientBirthDate(birthDate) // 🟢 já vem convertido
                 .build();
+
         appointmentRepository.save(appt);
 
-        // 5) resposta
+        // 5) resposta para o frontend
         AppointmentResponse resp = AppointmentResponse.builder()
                 .id(appt.getId())
                 .dateTime(appt.getDateTime())
@@ -79,6 +87,29 @@ public class AppointmentController {
 
         return ResponseEntity.ok(resp);
     }
+
+    @GetMapping("/internal/{id}")
+    public ResponseEntity<?> getAppointmentInternal(@PathVariable Long id) {
+        Optional<Appointment> appointmentOpt = appointmentRepository.findById(id);
+        if (appointmentOpt.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+
+        Appointment appointment = appointmentOpt.get();
+
+        AppointmentBasicResponse response = AppointmentBasicResponse.builder()
+                .id(appointment.getId())
+                .patientId(appointment.getPatientId())
+                .physicianId(appointment.getPhysicianId())
+                .status(appointment.getStatus().toString())
+                .reason(appointment.getReason())
+                .dateTime(appointment.getDateTime().toString())
+                .build();
+
+        return ResponseEntity.ok(response);
+    }
+
+
 
     // ADMIN → lista próximas consultas
     @PreAuthorize("hasRole('ADMIN')")

@@ -1,6 +1,7 @@
 package com.psoft.clinic.security;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.boot.actuate.autoconfigure.security.servlet.EndpointRequest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -13,6 +14,8 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+
 
 @Configuration
 @EnableMethodSecurity
@@ -28,14 +31,30 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/login", "/register", "/register/patient", "/h2-console/**").permitAll()
+                        // ✅ Permitir endpoints do Actuator corretamente
+                        .requestMatchers(EndpointRequest.toAnyEndpoint()).permitAll()
+
+                        // ✅ Permitir endpoints públicos
+                        .requestMatchers(
+                                "/login",
+                                "/register",
+                                "/register/patient",
+                                "/auth/login",
+                                "/auth/register",
+                                "/auth/register/patient",
+                                "/h2-console/**",
+                                "/physicians/internal"
+                        ).permitAll()
+                        .requestMatchers("/auth/register/physician").hasRole("ADMIN")
+
+                        // ✅ Todas as outras rotas exigem autenticação
                         .anyRequest().authenticated()
                 )
-                .addFilterBefore(jwtAuthFilter, org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter.class);
+                // Filtro JWT antes da autenticação
+                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
 
-        // Permitir acesso ao H2 Console
-        http.headers(headers -> headers.frameOptions(frame -> frame.disable()));
-
+                // Permitir iframes (necessário para o H2 Console)
+                .headers(headers -> headers.frameOptions(frame -> frame.disable()));
 
         return http.build();
     }

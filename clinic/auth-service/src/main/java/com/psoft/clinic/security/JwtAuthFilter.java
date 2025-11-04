@@ -26,6 +26,10 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
+        if (isPublicEndpoint(request)) {
+            filterChain.doFilter(request, response);
+            return;
+        }
 
         String header = request.getHeader("Authorization");
 
@@ -49,5 +53,17 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    // ✅ Método movido para fora do doFilterInternal
+    private boolean isPublicEndpoint(HttpServletRequest request) {
+        String uri = request.getRequestURI();
+
+        return uri.startsWith("/login")
+                || uri.equals("/register")
+                || uri.equals("/auth/login")
+                || uri.equals("/auth/register")
+                || uri.startsWith("/actuator")
+                || uri.startsWith("/h2-console");
     }
 }

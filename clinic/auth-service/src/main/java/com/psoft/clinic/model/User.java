@@ -3,13 +3,14 @@ package com.psoft.clinic.model;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.time.LocalDate;
+
 @Entity
-@Table(name = "users") // 👈 evita conflito com palavra reservada
-@Getter
-@Setter
+@Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@Table(name = "users")
 public class User {
 
     @Id
@@ -17,13 +18,19 @@ public class User {
     private Long id;
 
     private String name;
-
-    @Column(unique = true)
     private String email;
-
-    private String token;
     private String password;
 
     @Enumerated(EnumType.STRING)
     private Role role;
+
+    // Campos adicionais
+    private LocalDate birthDate;
+    private String phone;
+    private String insuranceInfo;
+    private Boolean consent;
+
+    // Token para autenticação
+    @Column(length = 1000)
+    private String token;
 }

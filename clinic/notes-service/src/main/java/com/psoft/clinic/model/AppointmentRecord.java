@@ -20,4 +20,5 @@ public class AppointmentRecord {
     private String treatment;
     private String prescription;
     private LocalDateTime createdAt = LocalDateTime.now();
+    private LocalDateTime updatedAt;
 }

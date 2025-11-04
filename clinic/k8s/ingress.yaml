@@ -1,0 +1,55 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: clinic-ingress
+  namespace: clinic
+  annotations:
+    nginx.ingress.kubernetes.io/use-regex: "true"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: clinic.local
+      http:
+        paths:
+          - path: /auth(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: auth-service
+                port:
+                  number: 8080
+          - path: /h2-console(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: auth-service
+                port:
+                  number: 8080
+          - path: /appointments
+            pathType: Prefix
+            backend:
+              service:
+                name: appointments-service
+                port:
+                  number: 8080
+          - path: /patients(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: clients-service
+                port:
+                  number: 8080
+          - path: /physicians
+            pathType: Prefix
+            backend:
+              service:
+                name: doctors-service
+                port:
+                  number: 8080
+          - path: /records
+            pathType: Prefix
+            backend:
+              service:
+                name: notes-service
+                port:
+                  number: 8080

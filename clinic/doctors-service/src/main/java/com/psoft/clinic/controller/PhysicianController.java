@@ -1,6 +1,8 @@
 package com.psoft.clinic.controller;
+import lombok.extern.slf4j.Slf4j;
 
 import com.psoft.clinic.client.AppointmentsServiceClient;
+import com.psoft.clinic.dto.PhysicianCreateRequest;
 import com.psoft.clinic.dto.PhysicianRequest;
 import com.psoft.clinic.dto.PhysicianResponse;
 import com.psoft.clinic.model.Physician;
@@ -8,8 +10,9 @@ import com.psoft.clinic.model.Role;
 import com.psoft.clinic.model.User;
 import com.psoft.clinic.repository.UserRepository;
 import com.psoft.clinic.repository.PhysicianRepository;
-import com.psoft.clinic.security.JwtUtil;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -18,7 +21,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.core.type.TypeReference;
-import lombok.RequiredArgsConstructor;
+import java.security.Principal;
 
 
 import java.io.File;
@@ -27,13 +30,12 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
+
  * Controller dos médicos + funções administrativas.
- * Combina os endpoints originais de PhysicianController e AdminController.
- *
- * - CRUD de médicos
- * - Pesquisa e atualização
- * - Estatísticas administrativas (via appointments-service)
+ * O AUTH-SERVICE é responsável por gerar tokens JWT.
+ * Este serviço apenas valida tokens recebidos.
  */
+@Slf4j
 @RestController
 @EnableMethodSecurity(prePostEnabled = true)
 @RequestMapping("/physicians")
@@ -43,57 +45,124 @@ public class PhysicianController {
     private final PhysicianRepository physicianRepository;
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
-    private final JwtUtil jwtUtil;
-    private final AppointmentsServiceClient appointmentsClient;
-    private final AppointmentsServiceClient appointmentsServiceClient;// 👈 comunicação com appointments-service
+    private final AppointmentsServiceClient appointmentsServiceClient;
+    @Value("${internal.api.key}")
+    private String internalApiKey;
+
 
     // ------------------------------------------------------------------------
     // 🔹 CRUD DE MÉDICOS
     // ------------------------------------------------------------------------
 
+
+
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> createPhysician(@RequestBody PhysicianRequest request) {
+        // 1️⃣ Impede e-mails duplicados no User
         if (userRepository.existsByEmail(request.getEmail())) {
             return ResponseEntity.badRequest().body("Email já registado.");
         }
 
+        // 2️⃣ Cria e guarda o utilizador com role PHYSICIAN
         User user = User.builder()
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
                 .role(Role.PHYSICIAN)
                 .build();
 
+        userRepository.save(user); // 💾 importante!
+
+        // 3️⃣ Cria o médico associado ao utilizador
         Physician physician = Physician.builder()
                 .name(request.getName())
                 .specialty(request.getSpecialty())
                 .contact(request.getContact())
                 .schedule(request.getSchedule())
-                .user(user)
+                .userId(user.getId()) // agora já tem ID real
                 .build();
 
-        user.setPhysician(physician);
-        String token = jwtUtil.generateToken(user);
-        user.setToken(token);
-
-        userRepository.save(user);
-        return ResponseEntity.ok("Médico criado com sucesso.");
+        try {
+            physicianRepository.save(physician);
+            log.info("💾 Médico guardado na BD: {}", physician.getId());
+            return ResponseEntity.ok("Médico criado com sucesso!");
+        } catch (DataIntegrityViolationException e) {
+            log.warn("⚠️ Tentativa de criar médico duplicado para userId {}", user.getId());
+            return ResponseEntity.status(409).body("Médico já existe (violação de integridade).");
+        } catch (Exception e) {
+            log.error("❌ Erro ao guardar médico: {}", e.getMessage());
+            return ResponseEntity.status(500).body("Erro interno ao criar médico.");
+        }
     }
 
+
+
+    @PostMapping("/internal")
+    public ResponseEntity<?> createPhysicianInternal(@RequestBody PhysicianCreateRequest request) {
+        // Verificar se o médico já existe baseado no userId
+        Optional<Physician> existingPhysician = physicianRepository.findByUserId(request.getUserId());
+        if (existingPhysician.isPresent()) {
+            return ResponseEntity.ok("Médico já existente.");
+        }
+
+        // Criar novo médico
+        Physician physician = new Physician();
+        physician.setUserId(request.getUserId());
+        physician.setName(request.getName());
+        physician.setSpecialty(request.getSpecialty());
+        physician.setContact(request.getContact());
+        physician.setSchedule(request.getSchedule());
+        physician.setPhotoPath(request.getPhotoPath()); // Se tiver foto
+
+        // Salvar o médico na base de dados
+        physicianRepository.save(physician);
+        System.out.println("💾 [createPhysicianInternal] Médico guardado na BD: " + physician.getId());
+
+        return ResponseEntity.ok("Médico criado com sucesso!");
+    }
+
+
+
+
+
+    // ------------------------------------------------------------------------
+// 🔹 ENDPOINT INTERNO — usado pelo appointments-service
+// ------------------------------------------------------------------------
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'PATIENT')")
-    public ResponseEntity<?> getPhysicianById(@PathVariable Long id) {
+    public ResponseEntity<?> getPhysicianById(
+
+            @PathVariable Long id,
+            @RequestHeader(value = "X-INTERNAL-KEY", required = false) String internalKey,
+            Principal principal) {
+
+        boolean isInternal = internalKey != null && internalKey.equals(internalApiKey);
+
+        // Se não for pedido interno nem tiver autenticação, bloqueia
+        if (!isInternal && principal == null) {
+            return ResponseEntity.status(403)
+                    .body("Acesso negado — requer autenticação ou chave interna.");
+        }
+
         return physicianRepository.findById(id)
-                .map(p -> PhysicianResponse.builder()
-                        .id(p.getId())
-                        .name(p.getName())
-                        .specialty(p.getSpecialty())
-                        .contact(p.getContact())
-                        .schedule(p.getSchedule())
-                        .build())
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+                .map(p -> {
+                    // Se for pedido interno → devolve todos os dados
+                    if (isInternal) {
+                        return ResponseEntity.ok(p);
+                    }
+
+                    // Caso contrário (pedido autenticado com JWT) → devolve DTO limitado
+                    PhysicianResponse dto = PhysicianResponse.builder()
+                            .id(p.getId())
+                            .name(p.getName())
+                            .specialty(p.getSpecialty())
+                            .contact(p.getContact())
+                            .schedule(p.getSchedule())
+                            .build();
+                    return ResponseEntity.ok(dto);
+                })
+                .orElse(ResponseEntity.status(404).body("Médico não encontrado."));
     }
+
 
     @GetMapping("/search")
     @PreAuthorize("hasRole('PATIENT')")
@@ -160,13 +229,13 @@ public class PhysicianController {
                 .contact(contact)
                 .schedule(schedule)
                 .photoPath(photoPath)
-                .user(user)
+                .userId(user.getId())
                 .build();
 
-        user.setPhysician(physician);
-        userRepository.save(user);
+        physicianRepository.save(physician);
 
         return ResponseEntity.ok("Médico criado com sucesso.");
+
     }
 
     // ------------------------------------------------------------------------
@@ -183,17 +252,12 @@ public class PhysicianController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> getTopPhysicians() {
         try {
-            // 1️⃣ Pede os dados do outro serviço
             String jsonResponse = appointmentsServiceClient.getTopPhysiciansByAppointmentCount();
-
-            // 2️⃣ Converte JSON em lista de mapas
             ObjectMapper mapper = new ObjectMapper();
             List<Map<String, Object>> stats = mapper.readValue(jsonResponse, new TypeReference<>() {});
 
-            // 3️⃣ Busca todos os médicos locais
             List<Physician> physicians = physicianRepository.findAll();
 
-            // 4️⃣ Combina os dados de ambos
             var response = stats.stream().map(stat -> {
                 Long id = ((Number) stat.get("id")).longValue();
                 Physician physician = physicians.stream()
@@ -214,6 +278,7 @@ public class PhysicianController {
         } catch (Exception e) {
             return ResponseEntity.status(500).body("Erro ao obter dados: " + e.getMessage());
         }
+
     }
 
     @GetMapping("/admin/average-duration")
@@ -232,7 +297,7 @@ public class PhysicianController {
     public ResponseEntity<?> getMonthlyReport(@RequestParam int year, @RequestParam int month) {
         try {
             String report = appointmentsServiceClient.getMonthlyReport(year, month);
-            return ResponseEntity.ok(report); // ✅ devolve a string como corpo da resposta
+            return ResponseEntity.ok(report);
         } catch (Exception e) {
             return ResponseEntity.status(500).body("Erro ao obter relatório: " + e.getMessage());
         }

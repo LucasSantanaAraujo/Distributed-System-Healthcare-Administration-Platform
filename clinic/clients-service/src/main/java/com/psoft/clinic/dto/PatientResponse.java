@@ -14,4 +14,5 @@ public class PatientResponse {
     private LocalDate birthDate;
     private String phone;
     private String insuranceInfo;
+    private boolean consent;
 }

@@ -31,8 +31,6 @@ public class User {
     private Role role;
 
 
-    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL)
-    private Physician physician;
 
 
 }

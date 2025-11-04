@@ -4,15 +4,19 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.User;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
+
 import java.io.IOException;
 import java.util.Collections;
+import java.util.List;
 
+@Slf4j
 @Component
 public class JwtAuthFilter extends OncePerRequestFilter {
 
@@ -29,19 +33,34 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
 
         String authHeader = request.getHeader("Authorization");
-        if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            String token = authHeader.substring(7);
-            if (jwtUtil.validateToken(token)) {
-                String email = jwtUtil.getEmailFromToken(token);
-                var auth = new UsernamePasswordAuthenticationToken(
-                        new User(email, "", Collections.emptyList()),
-                        null,
-                        Collections.emptyList()
-                );
-                auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                SecurityContextHolder.getContext().setAuthentication(auth);
-            }
+
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            log.warn("⚠️ Nenhum header Authorization encontrado em {}", request.getRequestURI());
+            filterChain.doFilter(request, response);
+            return;
         }
+
+        String token = authHeader.substring(7);
+        log.info("🎟️ Token recebido: {}", token);
+
+        if (!jwtUtil.validateToken(token)) {
+            log.error("❌ Falha na validação do token JWT!");
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        String email = jwtUtil.getEmailFromToken(token);
+        String role = jwtUtil.getRoleFromToken(token);
+
+        log.info("✅ Token válido para o utilizador: {} com role: {}", email, role);
+
+        List<SimpleGrantedAuthority> authorities =
+                (role != null) ? List.of(new SimpleGrantedAuthority("ROLE_" + role)) : Collections.emptyList();
+
+        var auth = new UsernamePasswordAuthenticationToken(email, null, authorities);
+        auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+        SecurityContextHolder.getContext().setAuthentication(auth);
+
         filterChain.doFilter(request, response);
     }
 }

@@ -1,0 +1,38 @@
+apiVersion: skaffold/v4beta11
+kind: Config
+metadata:
+  name: clinic
+build:
+  local:
+    push: false
+  artifacts:
+    - image: auth-service
+      context: auth-service
+    - image: clients-service
+      context: clients-service
+    - image: doctors-service
+      context: doctors-service
+    - image: appointments-service
+      context: appointments-service
+    - image: notes-service
+      context: notes-service
+deploy:
+  kubectl:
+    hooks:
+      before:
+        - host:
+            command: ["kubectl", "apply", "-f", "k8s/namespace.yaml"]
+    defaultNamespace: clinic
+    remoteManifests:
+      - k8s/auth-deployment.yaml
+      - k8s/clients-deployment.yaml
+      - k8s/doctors-deployment.yaml
+      - k8s/appointments-deployment.yaml
+      - k8s/notes-deployment.yaml
+      - k8s/auth-service.yaml
+      - k8s/clients-service.yaml
+      - k8s/doctors-service.yaml
+      - k8s/appointments-service.yaml
+      - k8s/notes-service.yaml
+      - k8s/ingress.yaml
+

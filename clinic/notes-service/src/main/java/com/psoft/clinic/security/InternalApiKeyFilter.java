@@ -19,21 +19,39 @@ public class InternalApiKeyFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
-        System.out.println("🔍 InternalApiKeyFilter executado para: " + request.getRequestURI());
 
+        String uri = request.getRequestURI();
+        System.out.println("🔍 [InternalApiKeyFilter] Executado para: " + uri);
 
-        String headerKey = request.getHeader("X-INTERNAL-KEY");
+        // 🔒 Apenas verifica endpoints internos (records, physicians, patients, etc.)
+        boolean isInternalEndpoint = uri.startsWith("/records/internal")
+                || uri.startsWith("/physicians/internal")
+                || uri.startsWith("/patients/internal")
+                || uri.startsWith("/appointments/internal");
 
-        // Apenas protege endpoints internos
-        if (request.getRequestURI().startsWith("/patients")) {
-            if (headerKey == null || !headerKey.equals(internalApiKey)) {
+        if (isInternalEndpoint) {
+            String headerKey = request.getHeader("X-INTERNAL-KEY");
+
+            System.out.println("🧩 [InternalApiKeyFilter] Header recebido: " + headerKey);
+            System.out.println("🧩 [InternalApiKeyFilter] Chave esperada: " + internalApiKey);
+
+            if (headerKey == null) {
+                System.out.println("🚫 [InternalApiKeyFilter] Nenhuma X-INTERNAL-KEY recebida.");
                 response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                response.getWriter().write("Acesso não autorizado (chave interna inválida)");
+                response.getWriter().write("Acesso negado: header X-INTERNAL-KEY ausente");
                 return;
             }
+
+            if (!headerKey.equals(internalApiKey)) {
+                System.out.println("🚫 [InternalApiKeyFilter] Chave inválida! Acesso negado.");
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                response.getWriter().write("Acesso negado: X-INTERNAL-KEY incorreta");
+                return;
+            }
+
+            System.out.println("✅ [InternalApiKeyFilter] Chave válida, acesso permitido ao endpoint interno.");
         }
 
         filterChain.doFilter(request, response);
     }
 }
-

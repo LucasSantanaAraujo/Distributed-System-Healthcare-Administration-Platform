@@ -4,37 +4,27 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDate;
-import java.util.List;
 
 @Entity
-@Table(name = "patients")
-@Data
+@Getter
+@Setter
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
 public class Patient {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(unique = true)
+    private Long userId; // ID do utilizador do auth-service
+
     private String name;
-
     private LocalDate birthDate;
-
     private String contact;
-
     private String insuranceInfo;
-
-    private boolean consent;
-
-    @Lob
-    private String photoBase64;
-
-    @ElementCollection
-    private List<String> healthConcerns;
-
-    @OneToOne
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+    private Boolean consent;
+    private String photoBase64; // imagem de perfil codificada em base64
+    private String healthConcerns; // observações médicas
 }

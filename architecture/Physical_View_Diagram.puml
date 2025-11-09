@@ -1,48 +1,63 @@
 @startuml Physical View - Deployment Diagram (HAP)
 !include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
 
-' Servidores genéricos (para implantação física)
-node "Servidor 1" as server1 {
-    artifact "Clients-Service Instância 1\nSpring Boot JAR\nPorta 8082" as clients_inst1
-    artifact "Clients-Service Instância 2\nSpring Boot JAR\nPorta 8082" as clients_inst2
+' K8s Cluster
+node "K8s Cluster (Namespace: clinic)" as k8s {
+    ' Ingress como API Gateway
+    rectangle "Ingress\n(API Gateway)\nHost: clinic.local\nRoteia por caminhos" as ingress
+
+    ' Pods (containers Docker)
+    artifact "Auth-Service Pod\nDocker Image\nPorta 8080\nRéplicas: 1-5 (HPA)" as auth_pod
+    artifact "Clients-Service Pod\nDocker Image\nPorta 8080\nRéplicas: 1-5 (HPA)" as clients_pod
+    artifact "Doctors-Service Pod\nDocker Image\nPorta 8080\nRéplicas: 1-5 (HPA)" as doctors_pod
+    artifact "Appointments-Service Pod\nDocker Image\nPorta 8080\nRéplicas: 1-5 (HPA)" as appointments_pod
+    artifact "Notes-Service Pod\nDocker Image\nPorta 8080\nRéplicas: 1-5 (HPA)" as notes_pod
+
+    ' K8s Services
+    rectangle "Auth Service\n(K8s ClusterIP)\nPorta 8080" as auth_svc
+    rectangle "Clients Service\n(K8s ClusterIP)\nPorta 8080" as clients_svc
+    rectangle "Doctors Service\n(K8s ClusterIP)\nPorta 8080" as doctors_svc
+    rectangle "Appointments Service\n(K8s ClusterIP)\nPorta 8080" as appointments_svc
+    rectangle "Notes Service\n(K8s ClusterIP)\nPorta 8080" as notes_svc
+
+    ' HPA para elasticidade
+    rectangle "HPA (Autoscaler)\nEscala pods 1-5\nBaseado em CPU > 70%" as hpa
 }
 
-node "Servidor 2" as server2 {
-    artifact "Doctors-Service Instância 1\nSpring Boot JAR\nPorta 8081" as doctors_inst1
-    artifact "Appointments-Service Instância 1\nSpring Boot JAR\nPorta 8083" as appointments_inst1
-    artifact "Appointments-Service Instância 2\nSpring Boot JAR\nPorta 8083" as appointments_inst2
-}
-
-node "Servidor 3" as server3 {
-    artifact "Notes-Service Instância 1\nSpring Boot JAR\nPorta 8084" as notes_inst1
-    artifact "Auth-Service Instância 1\nSpring Boot JAR\nPorta 8085" as auth_inst1
-}
-
-' DBs H2 isolados (único DB usado)
-database "Clients DB\nH2\nDados pacientes/usuários" as clients_db
-database "Doctors DB\nH2\nDados médicos" as doctors_db
-database "Appointments DB\nH2\nDados consultas" as appointments_db
-database "Notes DB\nH2\nDados registros" as notes_db
-database "Auth DB\nH2\nDados segurança" as auth_db
-
-' Load Balancer genérico
-rectangle "Load Balancer" as lb
+' DBs H2 (in-memory)
+database "Auth DB\nH2 (in-memory)" as auth_db
+database "Clients DB\nH2 (in-memory)" as clients_db
+database "Doctors DB\nH2 (in-memory)" as doctors_db
+database "Appointments DB\nH2 (in-memory)" as appointments_db
+database "Notes DB\nH2 (in-memory)" as notes_db
 
 ' Relações
-lb --> server1 : Distribui tráfego\nHTTP
-lb --> server2 : Distribui tráfego\nHTTP
-lb --> server3 : Distribui tráfego\nHTTP
+ingress --> auth_svc : Roteia /auth\nHTTP
+ingress --> clients_svc : Roteia /patients\nHTTP
+ingress --> doctors_svc : Roteia /physicians\nHTTP
+ingress --> appointments_svc : Roteia /appointments\nHTTP
+ingress --> notes_svc : Roteia /records\nHTTP
 
-clients_inst1 --> clients_db : Lê/escreve\nJDBC
-clients_inst2 --> clients_db : Lê/escreve\nJDBC
-doctors_inst1 --> doctors_db : Lê/escreve\nJDBC
-appointments_inst1 --> appointments_db : Lê/escreve\nJDBC
-appointments_inst2 --> appointments_db : Lê/escreve\nJDBC
-notes_inst1 --> notes_db : Lê/escreve\nJDBC
-auth_inst1 --> auth_db : Lê/escreve\nJDBC
+auth_svc --> auth_pod : Conecta
+clients_svc --> clients_pod : Conecta
+doctors_svc --> doctors_pod : Conecta
+appointments_svc --> appointments_pod : Conecta
+notes_svc --> notes_pod : Conecta
 
-' Comunicação entre serviços
-clients_inst1 --> auth_inst1 : Valida tokens\nHTTP/REST
-appointments_inst1 --> clients_inst1 : Consulta pacientes\nHTTP/REST
-notes_inst1 --> appointments_inst1 : Consulta consultas\nHTTP/REST
+hpa --> auth_pod : Escala réplicas\nCPU > 70%
+hpa --> clients_pod : Escala réplicas\nCPU > 70%
+hpa --> doctors_pod : Escala réplicas\nCPU > 70%
+hpa --> appointments_pod : Escala réplicas\nCPU > 70%
+hpa --> notes_pod : Escala réplicas\nCPU > 70%
+
+auth_pod --> auth_db : Lê/escreve\nJDBC
+clients_pod --> clients_db : Lê/escreve\nJDBC
+doctors_pod --> doctors_db : Lê/escreve\nJDBC
+appointments_pod --> appointments_db : Lê/escreve\nJDBC
+notes_pod --> notes_db : Lê/escreve\nJDBC
+
+' Comunicação interna via Services
+clients_pod --> auth_svc : Valida tokens\nHTTP/REST
+appointments_pod --> clients_svc : Consulta pacientes\nHTTP/REST
+notes_pod --> appointments_svc : Consulta consultas\nHTTP/REST
 @enduml

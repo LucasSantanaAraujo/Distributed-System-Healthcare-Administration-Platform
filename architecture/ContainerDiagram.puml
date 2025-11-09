@@ -6,42 +6,45 @@ Person(physician, "Médico", "Profissional que gere consultas e cria registos m�
 Person(admin, "Administrador", "User que gere médicos, pacientes e consultas")
 
 System_Boundary(clinic_system, "Sistema de Clínica Médica") {
-    Container(clients_service, "Clients-Service", "Spring Boot (Java + Maven)", "Microserviço para gestão de pacientes e autenticação (entidades: User, Patient; controladores: AuthController, PatientController)")
-    ContainerDb(clients_db, "Banco de Dados Clients", "H2", "Armazena dados de utilizadores e pacientes (JPA/Hibernate)")
+    Container(api_gateway, "API Gateway (Ingress)", "K8s Ingress (Nginx)", "Roteia requisições externas por caminhos (e.g., /auth -> auth-service, /patients -> clients-service)")
 
-    Container(doctors_service, "Doctors-Service", "Spring Boot (Java + Maven)", "Microserviço para gestão de médicos (entidade: Physician; controlador: PhysicianController)")
-    ContainerDb(doctors_db, "Banco de Dados Doctors", "H2", "Armazena dados de médicos (JPA/Hibernate)")
+    Container(auth_service, "Auth-Service", "Spring Boot (Pod K8s)", "Microserviço para gestão de autenticação JWT e segurança")
+    ContainerDb(auth_db, "Banco de Dados Auth", "H2 (in-memory)", "Armazena dados de segurança (reinicia com pod)")
 
-    Container(appointments_service, "Appointments-Service", "Spring Boot (Java + Maven)", "Microserviço para gestão de consultas (entidade: Appointment; controlador: AppointmentController)")
-    ContainerDb(appointments_db, "Banco de Dados Appointments", "H2", "Armazena dados de consultas (JPA/Hibernate)")
+    Container(clients_service, "Clients-Service", "Spring Boot (Pod K8s)", "Microserviço para gestão de pacientes e autenticação (entidades: User, Patient; controladores: AuthController, PatientController)")
+    ContainerDb(clients_db, "Banco de Dados Clients", "H2 (in-memory)", "Armazena dados de utilizadores e pacientes (reinicia com pod)")
 
-    Container(notes_service, "Notes-Service", "Spring Boot (Java + Maven)", "Microserviço para gestão de registos médicos (entidade: AppointmentRecord; controlador: RecordController)")
-    ContainerDb(notes_db, "Banco de Dados Notes", "H2", "Armazena registos de consultas (JPA/Hibernate)")
+    Container(doctors_service, "Doctors-Service", "Spring Boot (Pod K8s)", "Microserviço para gestão de médicos (entidade: Physician; controlador: PhysicianController)")
+    ContainerDb(doctors_db, "Banco de Dados Doctors", "H2 (in-memory)", "Armazena dados de médicos (reinicia com pod)")
 
-    Container(auth_service, "Auth-Service", "Spring Boot (Java + Maven)", "Microserviço para gestão de autenticação JWT e segurança")
-    ContainerDb(auth_db, "Banco de Dados Auth", "H2", "Armazena dados de segurança (JPA/Hibernate)")
+    Container(appointments_service, "Appointments-Service", "Spring Boot (Pod K8s)", "Microserviço para gestão de consultas (entidade: Appointment; controlador: AppointmentController)")
+    ContainerDb(appointments_db, "Banco de Dados Appointments", "H2 (in-memory)", "Armazena dados de consultas (reinicia com pod)")
+
+    Container(notes_service, "Notes-Service", "Spring Boot (Pod K8s)", "Microserviço para gestão de registos médicos (entidade: AppointmentRecord; controlador: RecordController)")
+    ContainerDb(notes_db, "Banco de Dados Notes", "H2 (in-memory)", "Armazena registos de consultas (reinicia com pod)")
 }
 
-Rel(patient, clients_service, "Utiliza para autenticação e ver dados pessoais", "HTTP/REST")
-Rel(patient, appointments_service, "Utiliza para agendar consultas", "HTTP/REST")
-Rel(physician, doctors_service, "Utiliza para gerir dados pessoais", "HTTP/REST")
-Rel(physician, appointments_service, "Utiliza para gerir consultas", "HTTP/REST")
-Rel(physician, notes_service, "Utiliza para criar/ver registos médicos", "HTTP/REST")
-Rel(admin, clients_service, "Utiliza para gestão de pacientes", "HTTP/REST")
-Rel(admin, doctors_service, "Utiliza para gestão de médicos", "HTTP/REST")
-Rel(admin, appointments_service, "Utiliza para gestão de consultas", "HTTP/REST")
+Rel(patient, api_gateway, "Utiliza para acessar sistema", "HTTP/REST (clinic.local)")
+Rel(physician, api_gateway, "Utiliza para acessar sistema", "HTTP/REST (clinic.local)")
+Rel(admin, api_gateway, "Utiliza para acessar sistema", "HTTP/REST (clinic.local)")
 
-Rel(appointments_service, clients_service, "Consulta dados de pacientes diretamente", "HTTP/REST (WebClient)")
-Rel(notes_service, appointments_service, "Referência remota a consultas diretamente", "HTTP/REST (potencial)")
+Rel(api_gateway, auth_service, "Roteia /auth e /h2-console", "HTTP/REST (via K8s Service)")
+Rel(api_gateway, clients_service, "Roteia /patients", "HTTP/REST (via K8s Service)")
+Rel(api_gateway, doctors_service, "Roteia /physicians", "HTTP/REST (via K8s Service)")
+Rel(api_gateway, appointments_service, "Roteia /appointments", "HTTP/REST (via K8s Service)")
+Rel(api_gateway, notes_service, "Roteia /records", "HTTP/REST (via K8s Service)")
 
+Rel(appointments_service, clients_service, "Consulta dados de pacientes diretamente", "HTTP/REST (via K8s Service)")
+Rel(notes_service, appointments_service, "Referência remota a consultas diretamente", "HTTP/REST (via K8s Service)")
+
+Rel(auth_service, auth_db, "Lê/escreve", "JDBC")
 Rel(clients_service, clients_db, "Lê/escreve", "JDBC")
 Rel(doctors_service, doctors_db, "Lê/escreve", "JDBC")
 Rel(appointments_service, appointments_db, "Lê/escreve", "JDBC")
 Rel(notes_service, notes_db, "Lê/escreve", "JDBC")
 
-Rel(clients_service, auth_service, "Valida tokens JWT para autenticação", "HTTP/REST (WebClient)")
-Rel(doctors_service, auth_service, "Valida tokens JWT para acesso seguro", "HTTP/REST (WebClient)")
-Rel(appointments_service, auth_service, "Valida tokens JWT antes de agendar", "HTTP/REST (WebClient)")
-Rel(notes_service, auth_service, "Valida tokens JWT para registros médicos", "HTTP/REST (WebClient)")
-Rel(auth_service, auth_db, "Lê/escreve dados de segurança", "JDBC")
+Rel(clients_service, auth_service, "Valida tokens JWT para autenticação", "HTTP/REST (via K8s Service)")
+Rel(doctors_service, auth_service, "Valida tokens JWT para acesso seguro", "HTTP/REST (via K8s Service)")
+Rel(appointments_service, auth_service, "Valida tokens JWT antes de agendar", "HTTP/REST (via K8s Service)")
+Rel(notes_service, auth_service, "Valida tokens JWT para registros médicos", "HTTP/REST (via K8s Service)")
 @enduml

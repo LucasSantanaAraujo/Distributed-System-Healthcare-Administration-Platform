@@ -5,23 +5,25 @@ Person(patient, "Paciente", "Usuário que agenda consultas, vê dados pessoais e
 Person(physician, "Médico", "Profissional que gere consultas, pacientes e cria registros médicos")
 Person(admin, "Administrador", "Usuário que gere médicos, pacientes, consultas e sistema geral")
 
-System(hap_system, "HAP (Health Appointment Platform)", "Sistema distribuído para gestão de consultas médicas, segregado em microserviços Spring Boot")
+System(hap_system, "HAP (Health Appointment Platform)", "Sistema distribuído para gestão de consultas médicas, segregado em microserviços Spring Boot com API Gateway (Ingress K8s)")
 
-Rel(patient, hap_system, "Agenda consultas, registra-se, vê dados pessoais e registros", "HTTP/REST")
-Rel(physician, hap_system, "Gere consultas, pacientes e registros médicos", "HTTP/REST")
-Rel(admin, hap_system, "Administra médicos, pacientes, consultas e configurações do sistema", "HTTP/REST")
+Rel(patient, hap_system, "Agenda consultas, registra-se, vê dados pessoais e registros", "HTTP/REST (via Ingress K8s, host clinic.local)")
+Rel(physician, hap_system, "Gere consultas, pacientes e registros médicos", "HTTP/REST (via Ingress K8s, host clinic.local)")
+Rel(admin, hap_system, "Administra médicos, pacientes, consultas e configurações do sistema", "HTTP/REST (via Ingress K8s, host clinic.local)")
 
-System_Boundary(hap_internal, "Microserviços Internos (Containers)") {
-    Container(clients_service, "Clients-Service", "Spring Boot (Java + Maven)", "Gerencia autenticação e dados de pacientes/usuários")
-    Container(doctors_service, "Doctors-Service", "Spring Boot (Java + Maven)", "Gerencia dados de médicos")
-    Container(appointments_service, "Appointments-Service", "Spring Boot (Java + Maven)", "Gerencia agendamentos de consultas")
-    Container(notes_service, "Notes-Service", "Spring Boot (Java + Maven)", "Gerencia registros médicos de consultas")
-    Container(auth_service, "Auth-Service", "Spring Boot (Java + Maven)", "Gerencia autenticação JWT e segurança global")
+System_Boundary(hap_internal, "Microserviços Internos (Pods K8s)") {
+    Container(api_gateway, "API Gateway (Ingress)", "K8s Ingress (Nginx)", "Roteia requisições externas por caminhos (e.g., /auth, /patients) para services K8s")
+    Container(auth_service, "Auth-Service", "Spring Boot (Pod K8s)", "Gerencia autenticação JWT e segurança global")
+    Container(clients_service, "Clients-Service", "Spring Boot (Pod K8s)", "Gerencia autenticação e dados de pacientes/usuários")
+    Container(doctors_service, "Doctors-Service", "Spring Boot (Pod K8s)", "Gerencia dados de médicos")
+    Container(appointments_service, "Appointments-Service", "Spring Boot (Pod K8s)", "Gerencia agendamentos de consultas")
+    Container(notes_service, "Notes-Service", "Spring Boot (Pod K8s)", "Gerencia registros médicos de consultas")
 }
 
+Rel(hap_system, api_gateway, "Inclui", "")
+Rel(hap_system, auth_service, "Inclui", "")
 Rel(hap_system, clients_service, "Inclui", "")
 Rel(hap_system, doctors_service, "Inclui", "")
 Rel(hap_system, appointments_service, "Inclui", "")
 Rel(hap_system, notes_service, "Inclui", "")
-Rel(hap_system, auth_service, "Inclui", "")
 @enduml

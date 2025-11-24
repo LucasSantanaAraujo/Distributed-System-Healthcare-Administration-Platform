@@ -1,0 +1,22 @@
+@startuml Sequence - Patient Registration
+title Patient Registration Flow (API Documentation)
+
+actor Patient
+participant "API Gateway\n(Ingress)" as gateway
+participant "Auth-Service" as auth
+participant "Clients-Service" as clients
+database "Auth DB\n(H2)" as auth_db
+database "Clients DB\n(H2)" as clients_db
+
+Patient -> gateway: POST /auth/register\n{name, email, password, role=PATIENT}
+gateway -> auth: Forward to /auth/register
+auth -> auth: Validate password & email uniqueness
+auth -> auth_db: Save User (email, password, role)
+auth -> clients: POST /patients/internal\n{userId, name, birthDate, phone, insuranceInfo, consent}\n(Header: X-INTERNAL-KEY)
+clients -> clients_db: Save Patient
+clients --> auth: Patient created
+auth --> gateway: Return JWT token
+gateway --> Patient: Registration successful + token
+
+note right: API: /auth/register (POST) - Registers user & patient.\n/auth/login (POST) - Authenticates & returns JWT.
+@enduml

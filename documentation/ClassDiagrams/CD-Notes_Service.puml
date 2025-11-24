@@ -1,0 +1,57 @@
+@startuml Notes Service Class Diagram
+class AppointmentRecord <<Entity>> {
+    - id: Long
+    - appointmentId: Long
+    - diagnosis: String
+    - treatment: String
+    - prescription: String
+    - createdAt: LocalDateTime
+    - updatedAt: LocalDateTime
+    + getId(): Long
+    + setDiagnosis(diagnosis: String): void
+}
+
+class RecordController <<Controller>> {
+    - recordRepository: AppointmentRecordRepository
+    - appointmentsServiceClient: AppointmentsServiceClient
+    + upsertByAppointment(appointmentId: Long, request: AppointmentDetailsRequest): ResponseEntity<?>
+    + getById(recordId: Long): ResponseEntity<?>
+}
+
+class AppointmentRecordRepository <<Repository>> {
+    + findByAppointmentId(appointmentId: Long): Optional<AppointmentRecord>
+}
+
+class AppointmentsServiceClient <<Client>> {
+    - restTemplate: RestTemplate
+    - appointmentsServiceUrl: String
+    - internalApiKey: String
+    + getAppointment(id: Long): AppointmentBasicResponse
+}
+
+class AppointmentDetailsRequest <<DTO>> {
+    - diagnosis: String
+    - treatment: String
+    - prescription: String
+}
+
+class AppointmentResponse <<DTO>> {
+    - id: Long
+    - dateTime: LocalDateTime
+    - reason: String
+    - status: AppointmentStatus
+    - patientName: String
+    - physicianName: String
+    - diagnosis: String
+    - treatment: String
+    - prescription: String
+}
+
+RecordController --> AppointmentRecordRepository : uses
+RecordController --> AppointmentsServiceClient : uses
+RecordController --> AppointmentDetailsRequest : uses
+RecordController --> AppointmentResponse : uses
+AppointmentRecordRepository --> AppointmentRecord : manages
+AppointmentsServiceClient --> RecordController : provides appointment data
+
+@enduml

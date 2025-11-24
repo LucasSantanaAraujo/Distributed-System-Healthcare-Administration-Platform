@@ -1,0 +1,62 @@
+@startuml Clients Service Class Diagram
+class Patient <<Entity>> {
+    - id: Long
+    - userId: Long
+    - name: String
+    - birthDate: LocalDate
+    - contact: String
+    - insuranceInfo: String
+    - consent: Boolean
+    - photoBase64: String
+    - healthConcerns: String
+    + getId(): Long
+    + setName(name: String): void
+}
+
+class PatientController <<Controller>> {
+    - patientRepository: PatientRepository
+    - internalApiKey: String
+    + createPatientInternal(request: PatientCreateRequest): ResponseEntity<?>
+    + getPatientById(id: Long, internalKey: String, principal: Principal): ResponseEntity<?>
+    + getAllPatients(): ResponseEntity<List<PatientResponse>>
+    + updateMyData(id: Long, request: PatientUpdateRequest): ResponseEntity<?>
+}
+
+class PatientRepository <<Repository>> {
+    + findByNameContainingIgnoreCase(name: String): List<Patient>
+    + findByUserId(userId: Long): Optional<Patient>
+}
+
+class PatientCreateRequest <<DTO>> {
+    - userId: Long
+    - name: String
+    - birthDate: LocalDate
+    - phone: String
+    - insuranceInfo: String
+    - consent: boolean
+}
+
+class PatientResponse <<DTO>> {
+    - id: Long
+    - name: String
+    - email: String
+    - birthDate: LocalDate
+    - phone: String
+    - insuranceInfo: String
+}
+
+class PatientUpdateRequest <<DTO>> {
+    - name: String
+    - phone: String
+    - insuranceInfo: String
+    - photoBase64: String
+    - healthConcerns: List<String>
+}
+
+PatientController --> PatientRepository : uses
+PatientController --> PatientCreateRequest : uses
+PatientController --> PatientResponse : uses
+PatientController --> PatientUpdateRequest : uses
+PatientRepository --> Patient : manages
+
+@enduml

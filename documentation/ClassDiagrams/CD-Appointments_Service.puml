@@ -1,0 +1,70 @@
+@startuml Appointments Service Class Diagram
+class Appointment <<Entity>> {
+    - id: Long
+    - dateTime: LocalDateTime
+    - reason: String
+    - patientId: Long
+    - physicianId: Long
+    - status: AppointmentStatus
+    - patientBirthDate: LocalDate
+    - recordCreatedAt: LocalDateTime
+    + getId(): Long
+    + setStatus(status: AppointmentStatus): void
+}
+
+class AppointmentController <<Controller>> {
+    - appointmentRepository: AppointmentRepository
+    - clientsServiceClient: ClientsServiceClient
+    - doctorsServiceClient: DoctorsServiceClient
+    + adminScheduleAppointment(request: AdminAppointmentRequest): ResponseEntity<?>
+    + getAppointmentInternal(id: Long): ResponseEntity<?>
+    + getById(id: Long): ResponseEntity<?>
+    + updateStatus(id: Long, status: String): ResponseEntity<?>
+}
+
+class AppointmentRepository <<Repository>> {
+    + findByPhysicianId(physicianId: Long): List<Appointment>
+    + existsByPatientIdAndDateTime(patientId: Long, dateTime: LocalDateTime): boolean
+    + findByDateTimeAfterOrderByDateTimeAsc(dateTime: LocalDateTime): List<Appointment>
+}
+
+class ClientsServiceClient <<Client>> {
+    - restTemplate: RestTemplate
+    - clientsServiceUrl: String
+    - internalApiKey: String
+    + getPatientById(id: Long): PatientClientResponse
+}
+
+class DoctorsServiceClient <<Client>> {
+    - restTemplate: RestTemplate
+    - doctorsServiceUrl: String
+    - internalApiKey: String
+    + getPhysicianById(id: Long): PhysicianClientResponse
+}
+
+class AdminAppointmentRequest <<DTO>> {
+    - patientId: Long
+    - physicianId: Long
+    - dateTime: LocalDateTime
+    - reason: String
+}
+
+class AppointmentResponse <<DTO>> {
+    - id: Long
+    - dateTime: LocalDateTime
+    - reason: String
+    - status: AppointmentStatus
+    - patientName: String
+    - physicianName: String
+}
+
+AppointmentController --> AppointmentRepository : uses
+AppointmentController --> ClientsServiceClient : uses
+AppointmentController --> DoctorsServiceClient : uses
+AppointmentController --> AdminAppointmentRequest : uses
+AppointmentController --> AppointmentResponse : uses
+AppointmentRepository --> Appointment : manages
+ClientsServiceClient --> AppointmentController : provides patient data
+DoctorsServiceClient --> AppointmentController : provides physician data
+
+@enduml

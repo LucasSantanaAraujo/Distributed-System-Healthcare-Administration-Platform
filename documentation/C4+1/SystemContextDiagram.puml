@@ -1,9 +1,9 @@
-@startuml C4+1 System Context Diagram - HAP (Health Appointment Platform)
+    @startuml C4+1 System Context Diagram - HAP (Health Appointment Platform)
 !include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
 
-Person(patient, "Paciente", "Usuário que agenda consultas, vê dados pessoais e acessa registros médicos")
+Person(patient, "Paciente", "Utilizador que agenda consultas, vê dados pessoais e acessa registros médicos")
 Person(physician, "Médico", "Profissional que gere consultas, pacientes e cria registros médicos")
-Person(admin, "Administrador", "Usuário que gere médicos, pacientes, consultas e sistema geral")
+Person(admin, "Administrador", "Utilizador que gere médicos, pacientes, consultas e sistema geral")
 
 System(hap_system, "HAP (Health Appointment Platform)", "Sistema distribuído para gestão de consultas médicas, segregado em microserviços Spring Boot com API Gateway (Ingress K8s)")
 

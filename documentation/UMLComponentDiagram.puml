@@ -1,0 +1,48 @@
+@startuml UML Component Diagram - HAP Distributed System
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+' Componentes principais (retângulos com estereótipo)
+component [Auth-Service\n<<Component>>] as auth {
+    interface "REST Endpoints\n(/auth/login, /auth/register)" as auth_provided <<Provided>>
+    interface "HTTP Client\n(Valida JWT)" as auth_required <<Required>>
+}
+
+component [Clients-Service\n<<Component>>] as clients {
+    interface "REST Endpoints\n(/patients)" as clients_provided <<Provided>>
+    interface "HTTP Client\n(Valida Pacientes)" as clients_required <<Required>>
+}
+
+component [Doctors-Service\n<<Component>>] as doctors {
+    interface "REST Endpoints\n(/physicians)" as doctors_provided <<Provided>>
+    interface "HTTP Client\n(Consulta Médicos)" as doctors_required <<Required>>
+}
+
+component [Appointments-Service\n<<Component>>] as appointments {
+    interface "REST Endpoints\n(/appointments)" as appointments_provided <<Provided>>
+    interface "HTTP Client\n(Valida Consultas)" as appointments_required <<Required>>
+}
+
+component [Notes-Service\n<<Component>>] as notes {
+    interface "REST Endpoints\n(/records)" as notes_provided <<Provided>>
+    interface "HTTP Client\n(Valida Registros)" as notes_required <<Required>>
+}
+
+' Instâncias (cloning com estereótipo)
+component [Auth-Service\n<<Clone>>\nAuth1, Auth2] as auth_instances
+component [Clients-Service\n<<Clone>>\nClients1, Clients2] as clients_instances
+component [Doctors-Service\n<<Clone>>\nDoctors1, Doctors2] as doctors_instances
+component [Appointments-Service\n<<Clone>>\nAppointments1, Appointments2] as appointments_instances
+component [Notes-Service\n<<Clone>>\nNotes1, Notes2] as notes_instances
+
+' Dependências (setas tracejadas com protocolo)
+auth --> clients : HTTP/REST\n(Forwarding Patient Creation)
+clients --> auth : HTTP/REST\n(JWT Validation)
+appointments --> clients : HTTP/REST\n(Patient Validation)
+appointments --> doctors : HTTP/REST\n(Physician Validation)
+notes --> appointments : HTTP/REST\n(Appointment Validation)
+doctors --> appointments : HTTP/REST\n(Top Physicians Report)
+
+' Peer forwarding entre instâncias
+auth_instances --> clients_instances : Peer Forwarding\n(Load Balanced)
+clients_instances --> appointments_instances : Peer Forwarding\n(Load Balanced)
+@enduml

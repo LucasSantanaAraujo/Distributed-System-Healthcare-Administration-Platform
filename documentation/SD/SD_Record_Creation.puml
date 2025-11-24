@@ -1,0 +1,19 @@
+@startuml Sequence - Record Creation
+title Record Creation Flow (API Documentation)
+
+actor Physician
+participant "API Gateway\n(Ingress)" as gateway
+participant "Notes-Service" as notes
+participant "Appointments-Service" as appointments
+database "Notes DB\n(H2)" as notes_db
+
+Physician -> gateway: PUT /records/appointment/{appointmentId}\n{diagnosis, treatment, prescription}
+gateway -> notes: Forward to /records/appointment/{appointmentId}
+notes -> appointments: GET /appointments/internal/{appointmentId}\n(Header: X-INTERNAL-KEY)
+appointments --> notes: Appointment exists
+notes -> notes_db: Upsert AppointmentRecord
+notes --> gateway: Record updated
+gateway --> Physician: Success
+
+note right: API: /records/appointment/{id} (PUT) - Creates/updates medical record.\nValidates appointment via appointments-service.
+@enduml

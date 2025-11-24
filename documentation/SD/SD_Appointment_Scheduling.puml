@@ -1,0 +1,23 @@
+@startuml Sequence - Appointment Scheduling
+title Appointment Scheduling Flow (API Documentation)
+
+actor Admin
+participant "API Gateway\n(Ingress)" as gateway
+participant "Appointments-Service" as appointments
+participant "Clients-Service" as clients
+participant "Doctors-Service" as doctors
+database "Appointments DB\n(H2)" as appt_db
+
+Admin -> gateway: POST /appointments/admin\n{patientId, physicianId, dateTime, reason}
+gateway -> appointments: Forward to /appointments/admin
+appointments -> clients: GET /patients/{patientId}\n(Header: X-INTERNAL-KEY)
+clients --> appointments: Patient data (birthDate, etc.)
+appointments -> doctors: GET /physicians/{physicianId}\n(Header: X-INTERNAL-KEY)
+doctors --> appointments: Physician data
+appointments -> appointments: Validate conflicts & save
+appointments -> appt_db: Save Appointment
+appointments --> gateway: Appointment created
+gateway --> Admin: Success
+
+note right: API: /appointments/admin (POST) - Schedules appointment.\nValidates via clients/doctors services.
+@enduml

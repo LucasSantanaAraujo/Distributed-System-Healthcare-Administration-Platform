@@ -1,0 +1,77 @@
+@startuml Doctors Service Class Diagram
+class Physician <<Entity>> {
+    - id: Long
+    - name: String
+    - specialty: String
+    - contact: String
+    - schedule: String
+    - photoPath: String
+    - userId: Long
+    + getId(): Long
+    + setName(name: String): void
+}
+
+class PhysicianController <<Controller>> {
+    - physicianRepository: PhysicianRepository
+    - userRepository: UserRepository
+    - passwordEncoder: PasswordEncoder
+    - appointmentsServiceClient: AppointmentsServiceClient
+    - internalApiKey: String
+    + createPhysician(request: PhysicianRequest): ResponseEntity<?>
+    + createPhysicianInternal(request: PhysicianCreateRequest): ResponseEntity<?>
+    + getPhysicianById(id: Long, internalKey: String, principal: Principal): ResponseEntity<?>
+    + getTopPhysicians(): ResponseEntity<?>
+}
+
+class PhysicianRepository <<Repository>> {
+    + findByNameContainingIgnoreCaseOrSpecialtyContainingIgnoreCase(name: String, specialty: String): List<Physician>
+    + findByUserId(userId: Long): Optional<Physician>
+}
+
+class User <<Entity>> {
+    - id: Long
+    - email: String
+    - password: String
+    - role: Role
+}
+
+class UserRepository <<Repository>> {
+    + findByEmail(email: String): Optional<User>
+    + existsByEmail(email: String): boolean
+}
+
+class AppointmentsServiceClient <<Client>> {
+    - restTemplate: WebClient
+    - appointmentsServiceUrl: String
+    - internalApiKey: String
+    + getTopPhysiciansByAppointmentCount(): String
+    + getAppointmentsByPhysicianId(physicianId: Long): String
+}
+
+class PhysicianRequest <<DTO>> {
+    - name: String
+    - specialty: String
+    - contact: String
+    - schedule: String
+    - email: String
+    - password: String
+}
+
+class PhysicianResponse <<DTO>> {
+    - id: Long
+    - name: String
+    - specialty: String
+    - contact: String
+    - schedule: String
+}
+
+PhysicianController --> PhysicianRepository : uses
+PhysicianController --> UserRepository : uses
+PhysicianController --> AppointmentsServiceClient : uses
+PhysicianController --> PhysicianRequest : uses
+PhysicianController --> PhysicianResponse : uses
+PhysicianRepository --> Physician : manages
+UserRepository --> User : manages
+AppointmentsServiceClient --> PhysicianController : provides data
+
+@enduml

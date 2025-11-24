@@ -1,0 +1,65 @@
+@startuml Auth Service Class Diagram
+class User <<Entity>> {
+    - id: Long
+    - name: String
+    - email: String
+    - password: String
+    - role: Role
+    - birthDate: LocalDate
+    - phone: String
+    - insuranceInfo: String
+    - consent: Boolean
+    - token: String
+    + getId(): Long
+    + setToken(token: String): void
+}
+
+class AuthController <<Controller>> {
+    - authenticationManager: AuthenticationManager
+    - userRepository: UserRepository
+    - passwordEncoder: PasswordEncoder
+    - jwtUtil: JwtUtil
+    - restTemplate: RestTemplate
+    - clientsServiceUrl: String
+    - doctorsServiceUrl: String
+    - internalApiKey: String
+    + register(request: AuthRequest): ResponseEntity<?>
+    + login(request: AuthRequest): ResponseEntity<?>
+    + registerPhysician(...): ResponseEntity<?>
+}
+
+class UserRepository <<Repository>> {
+    + findByEmail(email: String): Optional<User>
+    + existsByEmail(email: String): boolean
+}
+
+class JwtUtil <<Utility>> {
+    - jwtSecret: String
+    - jwtExpiration: long
+    + generateToken(user: User): String
+    + validateToken(token: String): boolean
+    + getEmailFromToken(token: String): String
+}
+
+class AuthRequest <<DTO>> {
+    - name: String
+    - email: String
+    - password: String
+    - role: Role
+    - birthDate: LocalDate
+    - phone: String
+    - insuranceInfo: String
+    - consent: Boolean
+}
+
+class AuthResponse <<DTO>> {
+    - token: String
+}
+
+AuthController --> UserRepository : uses
+AuthController --> JwtUtil : uses
+AuthController --> AuthRequest : uses
+AuthController --> AuthResponse : uses
+UserRepository --> User : manages
+
+@enduml

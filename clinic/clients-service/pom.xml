@@ -99,6 +99,24 @@
 			<artifactId>spring-security-config</artifactId>
 		</dependency>
 
+        <!-- NOVO: Axon Framework para CQRS, Event Sourcing e SAGA -->
+        <dependency>
+            <groupId>org.axonframework</groupId>
+            <artifactId>axon-spring-boot-starter</artifactId>
+            <version>4.9.3</version>
+        </dependency>
+        <!-- NOVO: Spring AMQP para RabbitMQ (AMQP) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-amqp</artifactId>
+        </dependency>
+        <!-- NOVO: MongoDB Driver para Event Store (opcional, para Event Sourcing) -->
+        <dependency>
+            <groupId>org.mongodb</groupId>
+            <artifactId>mongodb-driver-sync</artifactId>
+            <version>4.11.1</version>
+        </dependency>
+
 	</dependencies>
 
 	<build>

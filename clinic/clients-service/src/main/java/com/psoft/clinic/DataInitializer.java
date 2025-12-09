@@ -2,6 +2,7 @@ package com.psoft.clinic;
 
 import com.psoft.clinic.model.Patient;
 import com.psoft.clinic.repository.PatientRepository;
+import com.psoft.clinic.service.SequenceGeneratorService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
@@ -15,6 +16,7 @@ import java.util.List;
 public class DataInitializer {
 
     private final PatientRepository patientRepository;
+    private final SequenceGeneratorService sequenceGeneratorService;
 
     @Bean
     public CommandLineRunner initData() {
@@ -33,6 +35,7 @@ public class DataInitializer {
 
                 if (patientRepository.findByUserId(userId).isEmpty()) {
                     Patient patient = Patient.builder()
+                            .id(sequenceGeneratorService.generateSequence("patients_sequence"))
                             .userId(userId)
                             .name((String) p[1])
                             .birthDate((LocalDate) p[2])
@@ -40,6 +43,7 @@ public class DataInitializer {
                             .insuranceInfo((String) p[4])
                             .consent(true)
                             .build();
+
 
                     patientRepository.save(patient);
                     System.out.println("✅ Paciente criado no clients-service: " + p[1]);

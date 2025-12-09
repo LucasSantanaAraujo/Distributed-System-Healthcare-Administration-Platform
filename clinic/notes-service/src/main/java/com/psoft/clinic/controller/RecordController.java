@@ -77,7 +77,7 @@ public class RecordController {
     public ResponseEntity<?> getById(@PathVariable Long recordId) {
         logger.info("📄 [getById] Pedido de registo ID {}", recordId);
 
-        Optional<AppointmentRecord> opt = recordRepository.findById(recordId);
+        Optional<AppointmentRecord> opt = recordRepository.findByAppointmentId(recordId);
         if (opt.isEmpty()) {
             logger.warn("⚠️ [getById] Registo {} não encontrado", recordId);
             return ResponseEntity.notFound().build();

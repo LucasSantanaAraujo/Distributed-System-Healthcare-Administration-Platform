@@ -3,6 +3,8 @@ package com.psoft.clinic.controller;
 import com.psoft.clinic.client.ClientsServiceClient;
 import com.psoft.clinic.client.DoctorsServiceClient;
 import com.psoft.clinic.dto.*;
+import com.psoft.clinic.events.AppointmentCreatedEvent;
+import com.psoft.clinic.messaging.AppointmentEventPublisher;
 import com.psoft.clinic.model.Appointment;
 import com.psoft.clinic.model.AppointmentStatus;
 import com.psoft.clinic.repository.AppointmentRepository;
@@ -30,6 +32,8 @@ public class AppointmentController {
     private final AppointmentRepository appointmentRepository;
     private final ClientsServiceClient clientsServiceClient;
     private final DoctorsServiceClient doctorsServiceClient;
+    private final AppointmentEventPublisher eventPublisher;
+
 
     // ADMIN agenda uma consulta entre um paciente (clients-service) e um médico (doctors-service)
     @PreAuthorize("hasRole('ADMIN')")
@@ -74,6 +78,18 @@ public class AppointmentController {
                 .build();
 
         appointmentRepository.save(appt);
+
+        eventPublisher.publishCreatedEvent(
+                new AppointmentCreatedEvent(
+                        appt.getId(),
+                        appt.getPatientId(),
+                        appt.getPhysicianId(),
+                        appt.getDateTime(),
+                        appt.getReason()
+                )
+        );
+
+
 
         // 5) resposta para o frontend
         AppointmentResponse resp = AppointmentResponse.builder()

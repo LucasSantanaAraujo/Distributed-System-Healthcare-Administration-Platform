@@ -1,0 +1,23 @@
+@startuml
+title C1 – Contexto Alto Nível da Plataforma de Clínica
+
+actor "Utilizador (Paciente / Médico / Admin)" as User
+rectangle " API Gateway (Ingress)" as Gateway
+
+package "Plataforma Clínica (Microserviços)" {
+
+  [auth-service]
+  [clients-service]
+  [doctors-service]
+  [appointments-service]
+  [notes-service]
+}
+
+User --> Gateway : HTTP(S) / REST\n(login, marcação, consultas)
+Gateway --> [auth-service] : /auth/**\nlogin, registo, JWT
+Gateway --> [appointments-service] : /appointments/**\nmarcar/gestão de consultas
+Gateway --> [clients-service] : /patients/**\nperfil do paciente
+Gateway --> [doctors-service] : /physicians/**\nlista e dados dos médicos
+Gateway --> [notes-service] : /notes/**\nnotas clínicas (apenas staff)
+
+@enduml

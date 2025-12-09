@@ -1,0 +1,90 @@
+@startuml
+title Deployment – Microserviços da Clínica em Kubernetes
+
+node "Kubernetes Cluster" {
+
+  node "Namespace clinic" {
+
+    node "Deployment auth-service" {
+      [auth-service-1 : Pod]
+      [auth-service-2 : Pod]
+    }
+
+    node "Deployment clients-service" {
+      [clients-service-1 : Pod]
+      [clients-service-2 : Pod]
+    }
+
+    node "Deployment doctors-service" {
+      [doctors-service-1 : Pod]
+      [doctors-service-2 : Pod]
+    }
+
+    node "Deployment appointments-service" {
+      [appointments-service-1 : Pod]
+      [appointments-service-2 : Pod]
+    }
+
+    node "Deployment notes-service" {
+      [notes-service-1 : Pod]
+      [notes-service-2 : Pod]
+    }
+
+    node "Deployment rabbitmq" {
+      [rabbitmq : Pod]
+    }
+
+    ' Services Kubernetes (ClusterIP / LoadBalancer)
+    [svc-auth] - [auth-service-1]
+    [svc-auth] - [auth-service-2]
+
+    [svc-clients] - [clients-service-1]
+    [svc-clients] - [clients-service-2]
+
+    [svc-doctors] - [doctors-service-1]
+    [svc-doctors] - [doctors-service-2]
+
+    [svc-appointments] - [appointments-service-1]
+    [svc-appointments] - [appointments-service-2]
+
+    [svc-notes] - [notes-service-1]
+    [svc-notes] - [notes-service-2]
+
+    [svc-rabbitmq] - [rabbitmq]
+  }
+}
+
+node "DB Layer" {
+  database "AuthDB\n(PostgreSQL – Supabase)" as AuthDB
+  database "ClientsDB\n(MongoDB)" as ClientsDB
+  database "DoctorsDB\n(MongoDB)" as DoctorsDB
+  database "AppointmentsDB\n(PostgreSQL)" as AppDB
+  database "NotesDB\n(MongoDB)" as NotesDB
+}
+
+[auth-service-1] --> AuthDB
+[auth-service-2] --> AuthDB
+
+[clients-service-1] --> ClientsDB
+[clients-service-2] --> ClientsDB
+
+[doctors-service-1] --> DoctorsDB
+[doctors-service-2] --> DoctorsDB
+
+[appointments-service-1] --> AppDB
+[appointments-service-2] --> AppDB
+
+[notes-service-1] --> NotesDB
+[notes-service-2] --> NotesDB
+
+' AMQP – todos falam com RabbitMQ
+[appointments-service-1] --> [svc-rabbitmq]
+[appointments-service-2] --> [svc-rabbitmq]
+[clients-service-1] --> [svc-rabbitmq]
+[clients-service-2] --> [svc-rabbitmq]
+[doctors-service-1] --> [svc-rabbitmq]
+[doctors-service-2] --> [svc-rabbitmq]
+[notes-service-1] --> [svc-rabbitmq]
+[notes-service-2] --> [svc-rabbitmq]
+
+@enduml

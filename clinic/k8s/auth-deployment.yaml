@@ -4,7 +4,7 @@ metadata:
   name: auth-service
   namespace: clinic
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app: auth-service
@@ -19,27 +19,64 @@ spec:
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080
+
           resources:
             requests:
               cpu: 100m
-              memory: 128Mi
+              memory: 512Mi
             limits:
               cpu: 500m
-              memory: 256Mi
+              memory: 1Gi
+
           env:
             - name: SPRING_PROFILES_ACTIVE
               value: "docker"
+
+            - name: APP_RABBITMQ_HOST
+              value: "rabbitmq"
+
+            - name: APP_RABBITMQ_PORT
+              value: "5672"
+
+            - name: RABBITMQ_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: rabbitmq-secret
+                  key: username
+
+            - name: RABBITMQ_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: rabbitmq-secret
+                  key: password
+
+            - name: SPRING_DATASOURCE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: auth-service-db-secret
+                  key: SPRING_DATASOURCE_USERNAME
+
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: auth-service-db-secret
+                  key: SPRING_DATASOURCE_PASSWORD
+
+            - name: SPRING_DATASOURCE_URL
+              value: "jdbc:postgresql://aws-1-eu-west-1.pooler.supabase.com:5432/postgres?"
+
           readinessProbe:
             httpGet:
               path: /actuator/health
               port: 8080
-            initialDelaySeconds: 20
+            initialDelaySeconds: 120
             periodSeconds: 10
             failureThreshold: 6
+
           livenessProbe:
             httpGet:
               path: /actuator/health
               port: 8080
-            initialDelaySeconds: 40
+            initialDelaySeconds: 150
             periodSeconds: 20
             failureThreshold: 6

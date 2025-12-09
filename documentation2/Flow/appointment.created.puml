@@ -1,0 +1,23 @@
+@startuml
+title Event Flow – appointment.created
+
+skinparam componentStyle rectangle
+
+component "appointments-service" as App
+component "RabbitMQ\nappointments.exchange" as Rabbit
+component "notes-service" as Notes
+component "clients-service" as Clients
+component "doctors-service" as Doctors
+
+App --> Rabbit : publish\nAppointmentCreatedEvent\nroutingKey=appointment.created
+
+Rabbit --> Notes : deliver\nappointment.created\n(queue notes.appointment.created.queue)
+Notes --> Notes : cria AppointmentRecord\ndefault
+
+Rabbit --> Clients : deliver\nappointment.created\n(queue appointments.created.clients.queue)
+Clients --> Clients : atualiza lastAppointmentDate\n+ appointmentCount
+
+Rabbit --> Doctors : deliver\nappointment.created\n(queue appointments.created.doctors.queue)
+Doctors --> Doctors : atualiza totalAppointments\n+ lastAppointment
+
+@enduml

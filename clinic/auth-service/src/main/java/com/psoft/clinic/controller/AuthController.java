@@ -49,8 +49,9 @@ public class AuthController {
     @Value("${app.doctors-service.url}")
     private String doctorsServiceUrl;
 
-    @Value("${app.internal-api-key:12345}")
+    @Value("${internal.api.key}")
     private String internalApiKey;
+
     @Value("${app.upload-dir:uploads}")
     private String uploadDir;
 
@@ -209,7 +210,7 @@ public class AuthController {
 
             // 5️⃣ Adicionar o header interno (X-INTERNAL-KEY)
             HttpHeaders headers = new HttpHeaders();
-            headers.set("X-INTERNAL-KEY", "12345"); // Usa o mesmo valor do application.properties
+            headers.set("X-INTERNAL-KEY", internalApiKey);// Usa o mesmo valor do application.properties
             HttpEntity<PhysicianCreateRequest> entity = new HttpEntity<>(physicianRequest, headers);
 
             String url = doctorsServiceUrl + "/physicians/internal";

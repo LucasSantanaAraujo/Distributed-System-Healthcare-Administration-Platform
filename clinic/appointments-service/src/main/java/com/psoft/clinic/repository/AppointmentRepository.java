@@ -35,6 +35,7 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
             LocalDateTime start,
             LocalDateTime end
     );
+    
 
     // Consultas futuras (ordenadas)
     List<Appointment> findByDateTimeAfterOrderByDateTimeAsc(LocalDateTime dateTime);
@@ -51,4 +52,6 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
 
     @Query("SELECT COUNT(a) FROM Appointment a WHERE a.status = 'RESCHEDULED' AND MONTH(a.dateTime) = :month AND YEAR(a.dateTime) = :year")
     Long countRescheduledByMonthAndYear(@Param("month") int month, @Param("year") int year);
+
+
 }

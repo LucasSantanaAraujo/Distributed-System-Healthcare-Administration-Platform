@@ -1,0 +1,50 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: rabbitmq
+  namespace: clinic
+spec:
+  selector:
+    app: rabbitmq
+  ports:
+    - name: amqp
+      port: 5672
+      targetPort: 5672
+    - name: management
+      port: 15672
+      targetPort: 15672
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rabbitmq
+  namespace: clinic
+spec:
+  replicas: 1   # podemos subir para 3 se o stor quiser ver "cluster"
+  selector:
+    matchLabels:
+      app: rabbitmq
+  template:
+    metadata:
+      labels:
+        app: rabbitmq
+    spec:
+      containers:
+        - name: rabbitmq
+          image: rabbitmq:3.13-management
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5672   # AMQP
+            - containerPort: 15672  # UI de gestão
+          env:
+            - name: RABBITMQ_DEFAULT_USER
+              value: clinic_user
+            - name: RABBITMQ_DEFAULT_PASS
+              value: clinic_pass
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "300m"
+              memory: "256Mi"

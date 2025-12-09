@@ -1,0 +1,51 @@
+@startuml
+title C2 – Container / Serviços, Bases de Dados e RabbitMQ
+
+skinparam componentStyle rectangle
+
+actor "Frontend / API Gateway" as Gateway
+
+node "Kubernetes Cluster" {
+
+  component "auth-service" as Auth
+  component "clients-service" as Clients
+  component "doctors-service" as Doctors
+  component "appointments-service" as Appointments
+  component "notes-service" as Notes
+
+  component "RabbitMQ\nMessage Broker" as Rabbit
+  database "ClientsDB\n(MongoDB)" as ClientsDB
+  database "DoctorsDB\n(MongoDB)" as DoctorsDB
+  database "NotesDB\n(MongoDB)" as NotesDB
+}
+
+database "AuthDB\n(PostgreSQL – Supabase)" as AuthDB
+
+database "AppointmentsDB\n(PostgreSQL)" as AppDB
+
+
+' HTTP entre gateway e serviços
+Gateway --> Auth : HTTP /auth/**
+Gateway --> Appointments : HTTP /appointments/**
+Gateway --> Clients : HTTP /patients/**
+Gateway --> Doctors : HTTP /physicians/**
+Gateway --> Notes : HTTP /notes/**
+
+' Persistência
+Auth --> AuthDB
+Clients --> ClientsDB
+Doctors --> DoctorsDB
+Appointments --> AppDB
+Notes --> NotesDB
+
+' REST entre serviços
+Appointments --> Clients : HTTP /patients/{id}\n(X-INTERNAL-KEY)
+Appointments --> Doctors : HTTP /physicians/{id}\n(X-INTERNAL-KEY)
+
+' Eventos AMQP
+Appointments --> Rabbit : publish\nappointment.created
+Rabbit --> Notes : subscribe\nappointment.created
+Rabbit --> Clients : subscribe\nappointment.created
+Rabbit --> Doctors : subscribe\nappointment.created
+
+@enduml

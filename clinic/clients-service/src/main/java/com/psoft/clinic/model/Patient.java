@@ -1,11 +1,12 @@
 package com.psoft.clinic.model;
 
-import jakarta.persistence.*;
 import lombok.*;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.LocalDate;
 
-@Entity
+@Document(collection = "patients")
 @Getter
 @Setter
 @Builder
@@ -14,17 +15,17 @@ import java.time.LocalDate;
 public class Patient {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private Long id; // Agora gerido manualmente no service (não há @GeneratedValue)
 
-    @Column(unique = true)
     private Long userId; // ID do utilizador do auth-service
-
     private String name;
     private LocalDate birthDate;
     private String contact;
     private String insuranceInfo;
     private Boolean consent;
-    private String photoBase64; // imagem de perfil codificada em base64
-    private String healthConcerns; // observações médicas
+    private String photoBase64;
+    private String healthConcerns;
+    private LocalDate lastAppointmentDate;
+    @Builder.Default
+    private Integer appointmentCount = 0;
 }

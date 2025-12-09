@@ -1,25 +1,29 @@
-    package com.psoft.clinic.model;
+package com.psoft.clinic.model;
 
-    import jakarta.persistence.*;
-    import lombok.*;
+import lombok.*;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.Document;
 
-    @Entity
-    @Data
-    @Builder
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public class Physician {
+import java.time.LocalDateTime;
 
-        @Id
-        @GeneratedValue(strategy = GenerationType.IDENTITY)
-        private Long id;
+@Document(collection = "physicians")
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class Physician {
 
-        private String name;
-        private String specialty;
-        private String contact;
-        private String schedule;
-        private String photoPath;
-        @Column(unique = true)
-        private Long userId;
+    @Id
+    private Long id; // <-- agora é Long, igual ao clients-service
 
-    }
+    private Long userId;
+
+    private String name;
+    private String specialty;
+    private String contact;
+    private String schedule;
+    private String photoPath;
+    private Integer totalAppointments = 0;
+    private LocalDateTime lastAppointment;
+}
+

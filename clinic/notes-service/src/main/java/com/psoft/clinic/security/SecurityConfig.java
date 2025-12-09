@@ -30,6 +30,7 @@ public class SecurityConfig {
                                 "/actuator/**",
                                 "/auth/login",
                                 "/auth/register",
+                                "/rabbit/test",
                                 "/auth/register/patient",
                                 "/records/internal/**"  // ✅ permite requests internos
                         ).permitAll()

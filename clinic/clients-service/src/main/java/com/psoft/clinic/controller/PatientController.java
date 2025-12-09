@@ -5,13 +5,16 @@
     import com.psoft.clinic.dto.PatientUpdateRequest;
     import com.psoft.clinic.model.Patient;
     import com.psoft.clinic.repository.PatientRepository;
+    import com.psoft.clinic.service.SequenceGeneratorService;
     import lombok.RequiredArgsConstructor;
     import lombok.extern.slf4j.Slf4j;
+    import org.springframework.amqp.rabbit.core.RabbitTemplate;
+    import org.springframework.beans.factory.annotation.Autowired;
     import org.springframework.beans.factory.annotation.Value;
-    import org.springframework.http.HttpStatus;
     import org.springframework.http.ResponseEntity;
     import org.springframework.security.access.prepost.PreAuthorize;
     import org.springframework.web.bind.annotation.*;
+
 
     import java.security.Principal;
     import java.util.List;
@@ -24,6 +27,11 @@
     public class PatientController {
 
         private final PatientRepository patientRepository;
+        private final SequenceGeneratorService sequenceGeneratorService;
+        @Autowired
+        private RabbitTemplate rabbitTemplate;
+
+
 
         @Value("${internal.api.key}")
         private String internalApiKey;
@@ -39,6 +47,10 @@
             }
 
             Patient patient = new Patient();
+
+            long newId = sequenceGeneratorService.generateSequence("patients_sequence");
+            patient.setId(newId);
+
             patient.setUserId(request.getUserId());
             patient.setName(request.getName());
             patient.setBirthDate(request.getBirthDate());
@@ -47,6 +59,7 @@
             patient.setConsent(request.getConsent());
 
             patientRepository.save(patient);
+
             System.out.println("💾 [createPatientInternal] Paciente guardado na BD: " + patient.getId());
             return ResponseEntity.ok("Paciente criado com sucesso!");
         }
@@ -146,14 +159,19 @@
             }
 
             Patient patient = patientOpt.get();
+
             patient.setName(request.getName());
             patient.setContact(request.getPhone());
             patient.setInsuranceInfo(request.getInsuranceInfo());
             patient.setPhotoBase64(request.getPhotoBase64());
+
             if (request.getHealthConcerns() != null) {
                 patient.setHealthConcerns(String.join(", ", request.getHealthConcerns()));
             }
+
             patientRepository.save(patient);
+
+
 
             return ResponseEntity.ok("Dados do paciente atualizados com sucesso.");
         }

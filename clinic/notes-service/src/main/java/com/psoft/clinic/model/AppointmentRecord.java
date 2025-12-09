@@ -1,21 +1,22 @@
 package com.psoft.clinic.model;
 
-import jakarta.persistence.*;
 import lombok.*;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.Document;
+
 import java.time.LocalDateTime;
 
-@Entity
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@Document(collection = "appointment_records")
 public class AppointmentRecord {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private String id; // Agora é String (ObjectId do Mongo)
 
-    private Long appointmentId; // referência à consulta (do doctors-service)
+    private Long appointmentId; // referência à consulta (do appointments-service)
     private String diagnosis;
     private String treatment;
     private String prescription;

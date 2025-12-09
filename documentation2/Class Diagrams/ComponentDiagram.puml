@@ -1,0 +1,61 @@
+@startuml
+title C3 – Componentes do appointments-service (CQRS)
+
+package "appointments-service" {
+
+  [SecurityConfig]
+  [JwtAuthFilter]
+  [InternalApiKeyFilter]
+
+  package "API de Comandos\n(write model)" {
+    [AppointmentCommandController]
+  }
+
+  package "API de Queries\n(read model)" {
+    [AppointmentQueryController]
+  }
+
+  [AppointmentEventPublisher]
+  [AppointmentRepository]
+  [ClientsServiceClient]
+  [DoctorsServiceClient]
+}
+
+actor "Admin" as Admin
+actor "Paciente" as Patient
+component "RabbitMQ" as Rabbit
+component "clients-service" as Clients
+component "doctors-service" as Doctors
+database "AppointmentsDB\n(PostgreSQL)" as AppDB
+
+' Security em toda a API
+Admin --> AppointmentCommandController
+Patient --> AppointmentCommandController
+Admin --> AppointmentQueryController
+
+AppointmentCommandController --> JwtAuthFilter
+AppointmentQueryController --> JwtAuthFilter
+
+' Comandos
+Admin --> AppointmentCommandController : POST /appointments/admin\n(agendar)
+Patient --> AppointmentCommandController : POST /appointments/patient\n(agendar)
+Admin --> AppointmentCommandController : PUT /appointments/{id}/status\n(alterar estado)
+
+AppointmentCommandController --> AppointmentRepository : save(...)
+AppointmentCommandController --> AppointmentEventPublisher : publish\nAppointmentCreatedEvent
+
+' Queries
+Admin --> AppointmentQueryController : GET /appointments/admin/upcoming\nGET /appointments/{id}\nGET /appointments/admin/statistics/age-groups
+AppointmentQueryController --> AppointmentRepository : findBy...\nfindAll()
+
+' Integração síncrona
+AppointmentCommandController --> ClientsServiceClient : GET /patients/{id}
+AppointmentCommandController --> DoctorsServiceClient : GET /physicians/{id}
+
+' Eventos assíncronos
+AppointmentEventPublisher --> Rabbit : appointment.created
+
+' Persistência
+AppointmentRepository --> AppDB
+
+@enduml

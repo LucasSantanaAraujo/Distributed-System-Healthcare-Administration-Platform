@@ -1,0 +1,46 @@
+@startuml
+!theme plain
+title Process View - Fluxo de Eventos "Appointment Created"
+
+participant "Appointments\nService" as App
+queue "RabbitMQ\n(appointments.exchange)" as Exchange
+collections "Queues" as Queues
+participant "Notes\nService" as Notes
+participant "Clients\nService" as Clients
+participant "Doctors\nService" as Doctors
+
+autonumber
+
+App -> App: Salva Consulta (Postgres)
+App -> Exchange: Publish "appointment.created"
+
+par Fanout Distribution
+    Exchange -> Queues: Route to notes.queue
+    Exchange -> Queues: Route to clients.queue
+    Exchange -> Queues: Route to doctors.queue
+end
+
+par Async Processing
+    Queues -> Notes: Consume Message
+    activate Notes
+    Notes -> Notes: Cria Registo Vazio (Mongo)
+    deactivate Notes
+else
+    Queues -> Clients: Consume Message
+    activate Clients
+    Clients -> Clients: Update LastVisitDate
+    deactivate Clients
+else
+    Queues -> Doctors: Consume Message
+    activate Doctors
+    Doctors -> Doctors: Update Stats (+1)
+    deactivate Doctors
+end
+
+note over Exchange, Queues
+  O padrão Pub/Sub garante que
+  novos consumidores podem ser
+  adicionados sem alterar o Publisher.
+end note
+
+@enduml

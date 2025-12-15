@@ -1,0 +1,37 @@
+@startuml Sequence - Appointment Saga Flow
+title Saga Pattern: Agendamento de Consulta (Happy Path)
+
+actor Patient
+participant "Appointments\nService" as Appt
+database "Appt DB" as ApptDB
+queue "RabbitMQ\n(Topic Exchange)" as MQ
+participant "Doctors\nService" as Doc
+participant "Clients\nService" as Cli
+participant "Notes\nService" as Note
+
+Patient -> Appt: POST /appointments
+activate Appt
+Appt -> Appt: Validações HTTP (Sync)
+Appt -> ApptDB: SAVE (Status: CONFIRMED)
+Appt -> MQ: Publish "appointment.created"
+Appt --> Patient: 200 OK (Imediato)
+deactivate Appt
+
+par Async Processing
+    MQ -> Doc: Deliver Message
+    activate Doc
+    Doc -> Doc: Update totalAppointments +1
+    Doc -> Doc: Update lastAppointmentDate
+    deactivate Doc
+else
+    MQ -> Cli: Deliver Message
+    activate Cli
+    Cli -> Cli: Update appointmentCount +1
+    deactivate Cli
+else
+    MQ -> Note: Deliver Message
+    activate Note
+    Note -> Note: Create Empty Record (Stub)
+    deactivate Note
+end
+@enduml

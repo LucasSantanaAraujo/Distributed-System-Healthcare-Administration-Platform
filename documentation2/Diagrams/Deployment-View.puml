@@ -1,0 +1,47 @@
+@startuml
+!theme plain
+title Visão Física - Deployment em Kubernetes
+
+node "Kubernetes Cluster (Namespace: clinic)" {
+
+    component "Ingress Controller" as Ingress
+
+    package "Business Services" {
+        node "Pod: auth-service" as Auth
+        node "Pod: appointments-service" as Appts
+        node "Pod: clients-service" as Clients
+        node "Pod: doctors-service" as Doctors
+        node "Pod: notes-service" as Notes
+    }
+
+    package "Infrastructure Services" {
+        node "Pod: RabbitMQ" as Rabbit
+    }
+}
+
+node "Data Persistence Layer" {
+    database "PostgreSQL\n(Auth & Appointments)" as SQL
+    database "MongoDB\n(Doctors, Clients, Notes)" as NoSQL
+}
+
+' Network Flows
+Ingress --> Auth : /auth
+Ingress --> Appts : /appointments
+Ingress --> Clients : /patients
+Ingress --> Doctors : /physicians
+Ingress --> Notes : /records
+
+' DB Connections
+Auth ..> SQL
+Appts ..> SQL
+Clients ..> NoSQL
+Doctors ..> NoSQL
+Notes ..> NoSQL
+
+' Messaging Connections
+Appts --> Rabbit : Publish
+Clients <-- Rabbit : Subscribe
+Doctors <-- Rabbit : Subscribe
+Notes <-- Rabbit : Subscribe
+
+@enduml

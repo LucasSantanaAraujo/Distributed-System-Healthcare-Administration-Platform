@@ -1,0 +1,52 @@
+@startuml C4 Container Diagram - Microservices V2 (RabbitMQ & Saga)
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+Person(patient, "Paciente", "Agenda consultas")
+Person(admin, "Admin", "Gere o sistema")
+
+System_Boundary(clinic_system, "Sistema HAP Distribuído") {
+    Container(ingress, "API Gateway", "K8s Ingress", "Roteia HTTP")
+
+    ContainerQueue(rabbitmq, "Message Broker", "RabbitMQ", "Gerencia eventos assíncronos (Saga)")
+
+    Container(auth, "Auth-Service", "Spring Boot", "JWT & Users")
+    ContainerDb(auth_db, "Auth DB", "PostgreSQL", "Users Schema")
+
+    Container(appts, "Appointments-Service", "Spring Boot", "Core Business & Saga Publisher")
+    ContainerDb(appts_db, "Appointments DB", "PostgreSQL", "Appts Schema")
+
+    Container(doctors, "Doctors-Service", "Spring Boot", "Medical Data & Stats Consumer")
+    ContainerDb(doctors_db, "Doctors DB", "MongoDB", "Physician Collection")
+
+    Container(clients, "Clients-Service", "Spring Boot", "Patient Data & Stats Consumer")
+    ContainerDb(clients_db, "Clients DB", "PostgreSQL", "Clients Schema")
+
+    Container(notes, "Notes-Service", "Spring Boot", "Medical Records Consumer")
+    ContainerDb(notes_db, "Notes DB", "MongoDB", "Records Collection")
+}
+
+Rel(patient, ingress, "HTTPS")
+Rel(ingress, appts, "/appointments")
+Rel(ingress, doctors, "/physicians")
+Rel(ingress, clients, "/patients")
+
+' Comunicação Síncrona (Leitura/Validação)
+Rel(appts, doctors, "Valida médico (HTTP)", "REST")
+Rel(appts, clients, "Valida paciente (HTTP)", "REST")
+
+' Comunicação Assíncrona (Escrita/Saga)
+Rel(appts, rabbitmq, "Publica: AppointmentCreated", "AMQP")
+Rel(doctors, rabbitmq, "Publica: PhysicianUnavailable", "AMQP")
+
+Rel(rabbitmq, doctors, "Consome: AppointmentCreated", "AMQP")
+Rel(rabbitmq, clients, "Consome: AppointmentCreated", "AMQP")
+Rel(rabbitmq, notes, "Consome: AppointmentCreated", "AMQP")
+Rel(rabbitmq, appts, "Consome: PhysicianUnavailable (Compensação)", "AMQP")
+
+' Bancos
+Rel(auth, auth_db, "JDBC")
+Rel(appts, appts_db, "JDBC")
+Rel(doctors, doctors_db, "Mongo Driver")
+Rel(clients, clients_db, "JDBC")
+Rel(notes, notes_db, "Mongo Driver")
+@enduml

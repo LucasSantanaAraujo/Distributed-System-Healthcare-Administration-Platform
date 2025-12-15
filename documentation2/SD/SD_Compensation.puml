@@ -1,0 +1,25 @@
+@startuml Sequence - Compensation Flow
+title Saga Pattern: Compensação (Médico Indisponível)
+
+actor Admin
+participant "Doctors\nService" as Doc
+queue "RabbitMQ" as MQ
+participant "Appointments\nService" as Appt
+database "Appt DB" as ApptDB
+
+Admin -> Doc: POST /physicians/unavailable
+activate Doc
+Doc -> Doc: Bloqueia Agenda
+Doc -> MQ: Publish "physician.unavailable"\n(payload: dateRange, doctorId)
+deactivate Doc
+
+MQ -> Appt: Deliver Message
+activate Appt
+Appt -> ApptDB: Find Consultas no Período
+loop Para cada consulta afetada
+    Appt -> ApptDB: UPDATE Status = CANCELLED
+end
+deactivate Appt
+
+note right of Appt: Transação de Compensação:\nDesfaz o agendamento para manter consistência.
+@enduml

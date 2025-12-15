@@ -1,0 +1,52 @@
+@startuml
+!theme plain
+title Sequence Diagram - Registo de Paciente (Auth & Clients Sync)
+
+actor "Paciente (Novo)" as User
+participant "API Gateway\n(Ingress)" as Ingress
+participant "Auth-Service" as Auth
+database "Auth DB\n(Postgres)" as AuthDB
+participant "Clients-Service" as Clients
+database "Clients DB\n(Postgres)" as ClientsDB
+
+autonumber
+
+' 1. Início do Pedido
+User -> Ingress: POST /auth/register\n{email, password, role=PATIENT...}
+Ingress -> Auth: Forward Request
+
+activate Auth
+    ' 2. Validações Locais
+    Auth -> AuthDB: Check if Email Exists
+
+    alt Email Duplicado
+        Auth --> User: 400 Bad Request
+    else Email Novo
+        ' 3. Criação do Login (User)
+        Auth -> AuthDB: Save User (Login Data)
+
+        note right of Auth
+          Chamada Síncrona (REST)
+          para garantir consistência:
+          Sem perfil de paciente,
+          o login não deve existir.
+        end note
+
+        ' 4. Criação do Perfil (Patient) via chamada interna segura
+        Auth -> Clients: POST /patients/internal\n(Header: X-INTERNAL-KEY)
+        activate Clients
+            Clients -> ClientsDB: Check userId
+            Clients -> ClientsDB: Save Patient Profile
+            Clients --> Auth: 200 OK
+        deactivate Clients
+
+        ' 5. Geração do Token
+        Auth -> Auth: Generate JWT Token
+        Auth --> Ingress: 200 OK {token}
+    end
+deactivate Auth
+
+' 6. Resposta Final
+Ingress --> User: Registo Concluído + Token
+
+@enduml

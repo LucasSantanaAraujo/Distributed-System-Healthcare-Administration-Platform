@@ -1,0 +1,33 @@
+@startuml
+!theme plain
+title Sequence Diagram - Preenchimento de Prontuário (Notes Service)
+
+actor "Médico" as Doctor
+participant "Notes-Service" as Notes
+database "Notes DB\n(MongoDB)" as NotesDB
+participant "Appointments-Service" as Appts
+
+autonumber
+
+Doctor -> Notes: PUT /records/appointment/{id}\n{diagnosis, prescription}
+activate Notes
+
+    Note right of Notes: Validação de Segurança\n@PreAuthorize("hasRole('PHYSICIAN')")
+
+    Notes -> NotesDB: Find Record by AppointmentId
+    alt Registo não encontrado (ainda não criado via RabbitMQ)
+        Notes -> Appts: GET /appointments/internal/{id}
+        activate Appts
+            Appts --> Notes: 200 OK (Consulta existe)
+        deactivate Appts
+        Notes -> Notes: Cria novo objeto Record em memória
+    end
+
+    Notes -> Notes: Atualiza dados (Diagnóstico, Tratamento)
+    Notes -> NotesDB: Save (Upsert)
+
+    Notes --> Doctor: 200 OK "Detalhes atualizados"
+
+deactivate Notes
+
+@enduml

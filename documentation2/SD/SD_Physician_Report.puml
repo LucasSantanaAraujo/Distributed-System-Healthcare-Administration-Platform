@@ -1,0 +1,33 @@
+@startuml
+!theme plain
+title Sequence Diagram - Relatório de Médicos (Admin)
+
+actor "Administrador" as Admin
+participant "Doctors-Service" as Docs
+participant "Appointments-Service" as Appts
+database "Doctors DB\n(MongoDB)" as DocDB
+
+autonumber
+
+Admin -> Docs: GET /physicians/admin/top\n(Top Médicos por Consultas)
+activate Docs
+
+    Note right of Docs: Validação de Segurança\n@PreAuthorize("hasRole('ADMIN')")
+
+    alt Estratégia A: Dados Locais (Event Driven)
+        Docs -> DocDB: Find All SortBy(totalAppointments)
+        Note right of Docs: Leitura rápida no MongoDB\n(Dados atualizados via RabbitMQ)
+        Docs -> Docs: Map to DTO
+    else Estratégia B: Dados em Tempo Real (Sync)
+        Docs -> Appts: GET /appointments/statistics/top-physicians
+        activate Appts
+            Appts -> Appts: Calculate from SQL
+            Appts --> Docs: List<TopPhysicianDTO>
+        deactivate Appts
+    end
+
+    Docs --> Admin: 200 OK (Lista JSON)
+
+deactivate Docs
+
+@enduml

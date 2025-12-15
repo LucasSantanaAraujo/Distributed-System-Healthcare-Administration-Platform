@@ -1,43 +1,71 @@
+![Java](https://img.shields.io/badge/Java-21-orange) ![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.2-green) ![Kubernetes](https://img.shields.io/badge/Orchestration-Kubernetes-blue) ![RabbitMQ](https://img.shields.io/badge/Messaging-RabbitMQ-orange)
+
 # LETI-SISDIS_2025_G5
-## Trabalho realizado por:
-- Carlos Cunha 1230717;
-- Lucas Araújo 1230550;
-- Eduardo Coelho 1230720;
-# HAP (Health Appointment Platform)
+## 👨‍💻 Equipa (G5)
+| Estudante | Número |
+| :--- | :--- |
+| **Carlos Cunha** | 1230717 |
+| **Lucas Araújo** | 1230550 |
+| **Eduardo Coelho** | 1230720 |
 
-Sistema distribuído para gestão de consultas médicas, segregado em microserviços Spring Boot.
+## 🚀 Visão Geral do Projeto
 
-## Arquitetura Geral
+O **HAP** é uma plataforma distribuída para gestão de clínicas médicas, refatorada de uma arquitetura monolítica para **Microserviços**.
 
-O HAP foi inicialmente um monólito e foi segregado em 5 microserviços independentes para melhor escalabilidade e manutenção:
-- **Clients-Service:** Gerencia autenticação e dados de pacientes/usuários.
-- **Doctors-Service:** Gerencia dados de médicos.
-- **Appointments-Service:** Gerencia agendamentos de consultas.
-- **Notes-Service:** Gerencia registros médicos de consultas.
-- **Auth-Service:** Gerencia autenticação JWT e segurança global.
+O sistema resolve problemas de escalabilidade e resiliência utilizando orquestração via **Kubernetes** e um modelo de comunicação híbrido:
+- **Síncrono (REST):** Para autenticação, leituras críticas e interações diretas com o frontend.
+- **Assíncrono (AMQP/RabbitMQ):** Para consistência eventual, processamento de estatísticas e gestão de transações distribuídas (Saga).
 
-Cada serviço tem seu próprio banco de dados H2 isolado, facilitando testes e deployment independente. Comunicação via HTTP/REST com headers de segurança (X-INTERNAL-KEY) e validação JWT.
+### 🏛️ Padrões Arquiteturais Implementados
 
-## Diagramas C4 / C4+1
+* **Database-per-Service:** Isolamento total de dados. Cada microserviço opera o seu próprio banco (PostgreSQL ou MongoDB), sem partilha de tabelas.
+* **Saga Pattern (Coreografia):** Gestão de transações distribuídas sem orquestrador central.
+    * *Exemplo:* Se um médico fica indisponível (Doctors Service), o evento dispara o cancelamento automático das consultas (Appointments Service).
+* **CQRS (Leve):** Segregação de responsabilidade. Serviços como `Clients` e `Doctors` mantêm projeções de dados (read models) atualizadas via eventos para evitar latência de rede em leituras frequentes.
+* **Event-Driven Architecture:** Uso intensivo de **RabbitMQ** com *Topic Exchanges* para broadcasting de eventos de domínio (`AppointmentCreated`, `PhysicianUnavailable`).
 
-- **System Context Diagram:** Mostra HAP interagindo com atores externos (pacientes, médicos, admins). ![Visualizar](documentation/svg/SystemContextDiagram.svg)
-- **Container Diagram:** Detalha containers (serviços + DBs) e conexões HTTP/REST. ![Visualizar](documentation/svg/ContainerDiagram.svg)
-- **Physical View Diagram:** Mostra implantação física com K8s, pods, ingress, HPA e elasticidade. ![Visualizar](documentation/svg/PhysicalViewDiagram.svg)
-- **UML Component Diagram:** Componentes com interfaces (lollipops/sockets), instâncias (cloning) e dependências (HTTP/REST). ![Visualizar](documentation/svg/UML_Component_Diagram.svg)
-- **Sequence Diagrams:** Fluxos de API (registo, agendamento, registos). ![Registo](documentation/svg/SD_PatientRegistration.svg), ![Agendamento](documentation/svg/SD_Appointment_Scheduling.svg) etc.
-- **Class Diagrams:** Diagramas de classe para cada serviço, com entidades, controladores e relacionamentos. 
-- **API_Overview.md**: Endpoints REST documentados. 
+---
 
-## Decisões Arquiteturais
 
-- **Microserviços:** Escolhido para isolamento e escalabilidade, mas adiciona complexidade em comunicação (forwarding via WebClient/RestTemplate).
-- **Bancos Isolados (H2):** Facilita testes unitários e evita dependências compartilhadas. Futuro: Migrar para PostgreSQL/MySQL em produção.
-- **Segurança Centralizada:** Auth-Service gera/valida JWT, chamado por outros serviços para evitar duplicação.  Headers X-INTERNAL-KEY para comunicação interna.
-- **Forwarding HTTP:** Usado para consultas entre serviços (e.g., Appointments chama Clients), sem API Gateway ainda.
-- **Elasticidade:** HPA escala pods 1-5 baseado em CPU > 70%; réplicas evitam SPOF; fallbacks em clients para continuidade.
-- **Spring Boot:** Framework rápido para prototipagem, com Maven para builds.
-- **Limitações:** Sem containers Docker ainda; comunicação síncrona pode causar latência.
+## 📦 Mapa dos Serviços
 
+| Serviço | Porta (Interna) | Tech Stack | Responsabilidade | Persistência |
+| :--- | :--- | :--- | :--- | :--- |
+| **Auth** | 8080 | Spring Boot | Autenticação, JWT, Gateway de Segurança | PostgreSQL (Schema: `auth`) |
+| **Appointments** | 8080 | Spring Boot | Core Business, Gestão de Sagas | PostgreSQL (Schema: `appts`) |
+| **Doctors** | 8080 | Spring Boot | Gestão de Médicos, Estatísticas | MongoDB (Collection: `physicians`) |
+| **Clients** | 8080 | Spring Boot | Gestão de Pacientes, Histórico | PostgreSQL (Schema: `clients`) |
+| **Notes** | 8080 | Spring Boot | Prontuário Médico Eletrónico | MongoDB (Collection: `records`) |
+
+---
+
+## 🎨 Documentação Visual
+
+A documentação completa da arquitetura encontra-se na pasta `/docs`.
+
+### Diagramas Principais (C4 Model)
+- **[System Context Diagram](documentation/svg/SystemContextDiagram.svg):** Visão macro das interações com pacientes e médicos.
+- **[Container Diagram (V2)](documentation2/svg/C4_Container_V2.svg):** Detalhe dos microserviços, filas RabbitMQ e bases de dados separadas.
+- **[Physical View](documentation/svg/PhysicalViewDiagram.svg):** Implantação no Kubernetes (Pods, Services, Ingress).
+
+### Fluxos de Negócio (UML Sequence)
+- **[Saga: Agendamento](documentation/svg/SD_Appointment_Scheduling.svg):** O fluxo "Happy Path" assíncrono.
+- **[Saga: Compensação](documentation2/svg/SD_Compensation.svg):** O fluxo de reversão em caso de falha.
+- **[Registo Síncrono](documentation2/svg/SD_Patient_Registration.svg):** Criação de utilizadores via REST.
+
+---
+
+## 💡 Decisões Arquiteturais e Evolução
+
+| Decisão                    | Justificação | Estado Atual |
+|:---------------------------| :--- | :--- |
+| **Kubernetes (K8s)**       | Necessidade de orquestração, *Service Discovery* e *Self-healing*. | ✅ Implementado (Deployments, Services, Secrets). |
+| **Persistência**           | Adequar o banco ao tipo de dado (Relacional vs Documental). | ✅ Migrado de H2 para Postgres/Mongo em containers. |
+| **RabbitMQ**               | Desacoplar produtores de consumidores e permitir *Replay* de eventos. | ✅ Implementado (Topic Exchange). |
+| **Segurança Centralizada** | Evitar duplicação de lógica. Auth gera JWT, outros validam. | ✅ Implementado com `X-INTERNAL-KEY` para S2S. |
+| **API Gateway**            | Ponto único de entrada. | ✅ Implementado via K8s **Ingress**. |
+
+---
 ## Instruções de Deployment
 
 ### Pré-requisitos

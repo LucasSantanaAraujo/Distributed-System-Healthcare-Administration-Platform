@@ -1,0 +1,52 @@
+@startuml
+!theme plain
+title Visão Lógica - CQRS e Mensageria (Appointments Service)
+
+package "Appointments Service Context" {
+
+    package "API Layer" {
+        [AppointmentCommandController] <<Write>>
+        [AppointmentQueryController] <<Read>>
+        [SecurityFilter]
+    }
+
+    package "Domain Layer" {
+        [AppointmentRepository]
+        [AppointmentEventPublisher]
+    }
+
+    package "Infrastructure Layer" {
+        [ClientsFeignClient]
+        [DoctorsFeignClient]
+    }
+}
+
+package "External Context" {
+    component "RabbitMQ\n(Topic Exchange)" as Rabbit
+    component "Clients Service" as Clients
+    component "Doctors Service" as Doctors
+    database "PostgreSQL" as DB
+}
+
+' Fluxo de Escrita
+[AppointmentCommandController] --> [SecurityFilter]
+[AppointmentCommandController] --> [AppointmentRepository] : 1. Save State
+[AppointmentCommandController] --> [ClientsFeignClient] : Sync Validation
+[AppointmentCommandController] --> [AppointmentEventPublisher] : 2. Trigger Event
+
+' Fluxo de Leitura
+[AppointmentQueryController] --> [AppointmentRepository] : Read State
+
+' Integrações
+[AppointmentRepository] --> DB
+[AppointmentEventPublisher] --> Rabbit : Publish\n[appointment.created]
+[ClientsFeignClient] --> Clients : HTTP GET
+[DoctorsFeignClient] --> Doctors : HTTP GET
+
+note right of [AppointmentCommandController]
+  CQRS Pattern:
+  Separação clara entre
+  operações de Escrita e Leitura
+end note
+
+@enduml

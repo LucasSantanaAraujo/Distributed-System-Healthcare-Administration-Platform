@@ -11,9 +11,34 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class RabbitMQConfig {
 
-    // ===============
-    // APPOINTMENTS → CLIENTS
-    // ===============
+    // ============================================================
+    // 1. CONFIGURAÇÃO DE CLIENTS (O que falta para o erro desaparecer)
+    // ============================================================
+    public static final String CLIENTS_EXCHANGE = "clients-exchange";
+    public static final String PATIENT_CREATED_QUEUE = "patient.created.queue";
+    public static final String PATIENT_CREATED_ROUTING_KEY = "patient.created";
+
+    @Bean
+    public TopicExchange clientsExchange() {
+        return new TopicExchange(CLIENTS_EXCHANGE);
+    }
+
+    @Bean
+    public Queue patientCreatedQueue() {
+        return new Queue(PATIENT_CREATED_QUEUE, true); // true = durável
+    }
+
+    @Bean
+    public Binding bindingPatientCreated(Queue patientCreatedQueue, TopicExchange clientsExchange) {
+        return BindingBuilder
+                .bind(patientCreatedQueue)
+                .to(clientsExchange)
+                .with(PATIENT_CREATED_ROUTING_KEY);
+    }
+
+    // ============================================================
+    // 2. CONFIGURAÇÃO DE APPOINTMENTS (Que já tinhas)
+    // ============================================================
     public static final String APPOINTMENTS_EXCHANGE = "appointments.exchange";
     public static final String APPOINTMENTS_CREATED_CLIENTS_QUEUE = "appointments.created.clients.queue";
     public static final String APPOINTMENT_CREATED_ROUTING_KEY = "appointment.created";
@@ -36,12 +61,9 @@ public class RabbitMQConfig {
                 .with(APPOINTMENT_CREATED_ROUTING_KEY);
     }
 
-
-
-    // ======================
-    // CONFIGURAÇÃO GERAL
-    // ======================
-
+    // ============================================================
+    // 3. CONFIGURAÇÃO GERAL (Converter JSON)
+    // ============================================================
     @Bean
     public MessageConverter jsonConverter() {
         return new Jackson2JsonMessageConverter();

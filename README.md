@@ -82,5 +82,8 @@ A documentação completa da arquitetura encontra-se na pasta `/docs`.
     - Acesse: http://localhost:8082 (porta varia por serviço).
 3. Ordem sugerida: Auth-Service primeiro, depois Clients, Doctors, etc.
 
-
+## Entrega 2
+1. Usar Choreography Saga Pattern já com Event Sourcing (RabbitMQ).
+2. Load Balancer não obrigatório, mas recomendado.
+3. Documentar decisões arquiteturais e diagramas atualizados.
 

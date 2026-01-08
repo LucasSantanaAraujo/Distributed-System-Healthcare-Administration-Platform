@@ -1,0 +1,83 @@
+@startuml
+title appointments-service - Component Diagram (C4 L3 - TARGET P3)
+
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam packageStyle rectangle
+
+package "appointments-service" as APP {
+
+  component "AppointmentController\n(Spring REST Controller)" as controller
+
+  component "AppointmentCommandService\n(Command Side - CQRS)" as commandService
+  component "AppointmentQueryService\n(Query Side - CQRS)" as queryService
+
+  component "SagaOrchestrator\n(Distributed Transaction Coordinator)" as saga
+
+  component "ClientsServiceClient\n(HTTP Client)" as clientsClient
+  component "DoctorsServiceClient\n(HTTP Client)" as doctorsClient
+  component "NotesServiceClient\n(HTTP Client / optional)" as notesClient
+
+  component "EventPublisher\n(AMQP Producer)" as eventPublisher
+  component "EventConsumer\n(AMQP Consumer)" as eventConsumer
+
+  component "EventStoreRepository\n(Append-only events)" as eventStoreRepo
+  component "ProjectionUpdater\n(Build read models)" as projectionUpdater
+
+  component "AppointmentReadModelRepository\n(Read DB access)" as readRepo
+  component "AppointmentWriteRepository\n(Write DB access)" as writeRepo
+
+  component "SecurityFilterChain\n(JWT validation, roles)" as security
+
+  component "ResiliencePolicy\n(Resilience4j: Retry/CB/Timeout/Bulkhead)" as resilience
+  component "Tracing/Logging/Metrics\n(OpenTelemetry + Micrometer)" as telemetry
+}
+
+database "PostgreSQL (Supabase)\nWrite DB (appointments)" as writeDb
+database "Read Model DB\n(appointments-query)" as readDb
+database "Event Store\n(MongoDB ou Postgres table)" as eventStoreDb
+
+queue "RabbitMQ (AMQP)" as rabbit
+
+component "clients-service\n(REST API)" as clientsSvc
+component "doctors-service\n(REST API)" as doctorsSvc
+component "notes-service\n(REST API)" as notesSvc
+
+' Security
+security ..> controller : autentica/autoriza
+
+' Requests
+controller --> commandService : POST/PUT/DELETE\n(commands)
+controller --> queryService : GET\n(queries)
+
+' CQRS - write path
+commandService --> saga : inicia saga (ex: BookAppointment)
+saga --> resilience : aplica políticas
+saga --> telemetry : cria spans/logs/metrics
+
+saga --> clientsClient : valida paciente
+saga --> doctorsClient : valida disponibilidade
+saga --> notesClient : cria/inicializa notes (se aplicável)
+
+clientsClient --> clientsSvc : HTTPS/REST
+doctorsClient --> doctorsSvc : HTTPS/REST
+notesClient --> notesSvc : HTTPS/REST
+
+' Event Sourcing (write)
+commandService --> eventStoreRepo : append events
+eventStoreRepo --> eventStoreDb : persist
+
+' Persistência do estado corrente (se aplicável)
+commandService --> writeRepo : atualiza estado
+writeRepo --> writeDb : JDBC
+
+' Async integration
+eventPublisher --> rabbit : publica eventos
+rabbit --> eventConsumer : entrega eventos
+eventConsumer --> projectionUpdater : notifica novo evento
+
+' Projections (read model)
+projectionUpdater --> readRepo : atualiza read model
+readRepo --> readDb : persist
+
+@enduml

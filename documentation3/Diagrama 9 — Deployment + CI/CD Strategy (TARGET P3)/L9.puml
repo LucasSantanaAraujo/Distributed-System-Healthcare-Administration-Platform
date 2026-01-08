@@ -1,0 +1,71 @@
+@startuml
+title Deployment + CI/CD (Docker -> Registry -> Kubernetes) - TARGET P3
+
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam packageStyle rectangle
+
+actor "Developer" as Dev
+
+component "Git Repository\n(GitHub/GitLab)" as Git
+component "CI Pipeline\n(GitHub Actions)" as CI
+component "Container Registry\n(Docker Hub/GHCR)" as Registry
+
+package "Kubernetes Cluster" as K8S {
+  component "Nginx Ingress" as Ingress
+
+  package "Microservices (Deployments)" as MS {
+    component "auth-service" as Auth
+    component "clients-service" as Clients
+    component "doctors-service" as Doctors
+    component "appointments-service" as Appointments
+    component "notes-service" as Notes
+  }
+
+  queue "RabbitMQ" as MQ
+
+  database "PostgreSQL (Supabase)\n(auth)" as DBA
+  database "PostgreSQL (Supabase)\n(appointments)" as DBP
+  database "MongoDB\n(clients)" as DBC
+  database "MongoDB\n(doctors)" as DBD
+  database "MongoDB\n(notes)" as DBN
+
+  component "Prometheus/Grafana/Jaeger/Loki\n(Observability)" as Obs
+}
+
+' Code flow
+Dev --> Git : git push
+
+Git --> CI : trigger pipeline
+CI --> CI : build + unit tests\n+ (optional) contract tests (Pact)
+CI --> CI : docker build images\n(tag semver/commit sha)
+CI --> Registry : push images
+
+' Deploy flow
+CI --> K8S : kubectl apply / helm upgrade\n(update image tags)
+K8S --> MS : rolling update OR blue-green/canary
+Ingress --> MS : route traffic by paths
+
+' Health / readiness gating
+MS --> MS : liveness/readiness probes\n(Actuator endpoints)
+Obs <-- MS : scrape metrics + collect logs/traces
+
+' Data ownership
+Auth --> DBA
+Appointments --> DBP
+Clients --> DBC
+Doctors --> DBD
+Notes --> DBN
+
+' Messaging
+Appointments --> MQ
+MQ --> Notes
+
+note right of MS
+Zero-downtime:
+- RollingUpdate (mínimo)
+- ou Blue-Green/Canary (nota alta)
+Gating via readinessProbe + métricas
+end note
+
+@enduml

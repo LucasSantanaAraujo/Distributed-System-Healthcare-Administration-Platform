@@ -32,7 +32,7 @@ public class SecurityConfig {
                 .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         // ✅ Permitir endpoints do Actuator corretamente
-                        .requestMatchers(EndpointRequest.toAnyEndpoint()).permitAll()
+                        .requestMatchers("/actuator/**").permitAll()
 
                         // ✅ Permitir endpoints públicos
                         .requestMatchers(
@@ -41,6 +41,7 @@ public class SecurityConfig {
                                 "/register/patient",
                                 "/auth/login",
                                 "/auth/register",
+                               "/auth/debug/log",
                                 "/auth/register/patient",
                                 "/h2-console/**",
                                 "/physicians/internal"

@@ -8,6 +8,9 @@ import com.psoft.clinic.messaging.AppointmentEventPublisher;
 import com.psoft.clinic.model.Appointment;
 import com.psoft.clinic.model.AppointmentStatus;
 import com.psoft.clinic.repository.AppointmentRepository;
+import com.psoft.clinic.saga.BookAppointmentCommand;
+import com.psoft.clinic.saga.BookAppointmentSagaOrchestrator;
+import com.psoft.clinic.saga.SagaResult;
 import com.psoft.clinic.util.DateTimeUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -33,6 +36,7 @@ public class AppointmentController {
     private final ClientsServiceClient clientsServiceClient;
     private final DoctorsServiceClient doctorsServiceClient;
     private final AppointmentEventPublisher eventPublisher;
+    private final BookAppointmentSagaOrchestrator saga;
 
 
     // ADMIN agenda uma consulta entre um paciente (clients-service) e um médico (doctors-service)
@@ -40,68 +44,54 @@ public class AppointmentController {
     @PostMapping("/admin")
     public ResponseEntity<?> adminScheduleAppointment(@RequestBody AdminAppointmentRequest request) {
 
-        // Normalizar minuto (evita conflito por segundos)
+        System.out.println("➡️ Controller ADMIN chamou a saga");
+
         LocalDateTime dateTime = DateTimeUtils.truncateToMinute(request.getDateTime());
 
-        // 1) validar paciente no clients-service
-        PatientClientResponse patient = clientsServiceClient.getPatientById(request.getPatientId());
-        if (patient == null) {
-            return ResponseEntity.status(404).body("Paciente não encontrado no clients-service.");
+        SagaResult result = saga.start(new BookAppointmentCommand(
+                request.getPatientId(),
+                request.getPhysicianId(),
+                dateTime,
+                request.getReason(),
+                "ADMIN"
+        ));
+
+        if (!result.isSuccess()) {
+            return ResponseEntity.badRequest().body(result.getError());
         }
 
-        // ✅ Já vem como LocalDate — nada de parse manual
-        LocalDate birthDate = patient.getBirthDate();
-
-
-        // 2) validar médico no doctors-service
-        PhysicianClientResponse physician = doctorsServiceClient.getPhysicianById(request.getPhysicianId());
-        if (physician == null) {
-            return ResponseEntity.status(404).body("Médico não encontrado no doctors-service.");
+        Optional<Appointment> apptOpt = appointmentRepository.findById(result.getAppointmentId());
+        if (apptOpt.isEmpty()) {
+            return ResponseEntity.status(500).body("Consulta criada mas não encontrada.");
         }
 
-        // 3) verificar conflitos de horários
-        if (appointmentRepository.existsByPhysicianIdAndDateTime(request.getPhysicianId(), dateTime)) {
-            return ResponseEntity.badRequest().body("O médico já tem consulta nesse horário.");
-        }
-        if (appointmentRepository.existsByPatientIdAndDateTime(request.getPatientId(), dateTime)) {
-            return ResponseEntity.badRequest().body("O paciente já tem consulta nesse horário.");
-        }
+        Appointment appt = apptOpt.get();
 
-        // 4) guardar na BD
-        Appointment appt = Appointment.builder()
-                .dateTime(dateTime)
-                .reason(request.getReason())
-                .status(AppointmentStatus.CONFIRMED)
-                .patientId(request.getPatientId())
-                .physicianId(request.getPhysicianId())
-                .patientBirthDate(birthDate) // 🟢 já vem convertido
-                .build();
+        String patientName = "Paciente #" + appt.getPatientId();
+        String physicianName = "Médico #" + appt.getPhysicianId();
 
-        appointmentRepository.save(appt);
+        try {
+            PatientClientResponse patient = clientsServiceClient.getPatientById(appt.getPatientId());
+            if (patient != null) patientName = patient.getName();
+        } catch (Exception ignored) {}
 
-        eventPublisher.publishCreatedEvent(
-                new AppointmentCreatedEvent(
-                        appt.getId(),
-                        appt.getPatientId(),
-                        appt.getPhysicianId(),
-                        appt.getDateTime(),
-                        appt.getReason()
-                )
-        );
+        try {
+            PhysicianClientResponse physician = doctorsServiceClient.getPhysicianById(appt.getPhysicianId());
+            if (physician != null) physicianName = physician.getName();
+        } catch (Exception ignored) {}
 
-
-
-        // 5) resposta para o frontend
         AppointmentResponse resp = AppointmentResponse.builder()
                 .id(appt.getId())
                 .dateTime(appt.getDateTime())
                 .reason(appt.getReason())
                 .status(appt.getStatus())
-                .patientName(patient.getName())
-                .physicianName(physician.getName())
+                .patientName(patientName)
+                .physicianName(physicianName)
                 .build();
 
-        return ResponseEntity.ok(resp);
+        return ResponseEntity.ok()
+                .header("X-Correlation-Id", result.getCorrelationId())
+                .body(resp);
     }
 
     @GetMapping("/internal/{id}")

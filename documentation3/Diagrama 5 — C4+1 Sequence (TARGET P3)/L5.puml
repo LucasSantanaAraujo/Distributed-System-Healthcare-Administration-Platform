@@ -1,0 +1,71 @@
+@startuml
+title Scenario (C4+1) - Book Appointment (SUCCESS) - CQRS + Async Notes
+
+hide footbox
+skinparam shadowing false
+
+actor "Paciente/Cliente" as User
+participant "Nginx Ingress" as Ingress
+participant "appointments-service\nAppointmentController" as AppCtrl
+participant "appointments-service\nSagaOrchestrator" as Saga
+participant "auth-service\nJWT Validation" as Auth
+participant "clients-service" as Clients
+participant "doctors-service" as Doctors
+participant "RabbitMQ" as MQ
+
+database "Event Store\n(append-only)" as ES
+database "Write DB\n(appointments)" as WDB
+
+participant "ProjectionUpdater\n(appointments)" as ProjApp
+database "Read Model DB\n(appointments-query)" as RDBApp
+
+participant "notes-service\nEventConsumer" as NotesConsumer
+database "MongoDB\n(notes)" as NotesDB
+
+== Command (Write side) ==
+User -> Ingress : POST /appointments\n(Authorization: Bearer JWT)
+Ingress -> AppCtrl : forward request
+
+AppCtrl -> Auth : validate JWT + roles/scopes
+Auth --> AppCtrl : OK (claims)
+
+AppCtrl -> Saga : startSaga(BookAppointmentCommand)\n(correlationId)
+
+== Saga Steps (success path) ==
+Saga -> ES : append AppointmentRequested
+ES --> Saga : ack
+
+Saga -> Clients : ValidateClient(clientId)\n(REST)
+Clients --> Saga : ClientValid
+
+Saga -> Doctors : ReserveSlot(doctorId, timeSlot)\n(REST)
+Doctors --> Saga : SlotReserved(reservationId)
+
+== Commit (Write DB + Event) ==
+Saga -> WDB : persist appointment state = BOOKED
+WDB --> Saga : OK
+
+Saga -> ES : append AppointmentCreatedEvent
+ES --> Saga : ack
+
+Saga -> MQ : publish AppointmentCreatedEvent\n(correlationId, appointmentId, clientId, doctorId, timeSlot)
+MQ --> Saga : ack
+
+== Async Projections (Query side) ==
+MQ -> ProjApp : deliver AppointmentCreatedEvent
+ProjApp -> RDBApp : update read model
+RDBApp --> ProjApp : OK
+
+== Async Notes Creation ==
+MQ -> NotesConsumer : deliver AppointmentCreatedEvent
+NotesConsumer -> NotesDB : create initial notes record
+NotesDB --> NotesConsumer : OK
+NotesConsumer -> MQ : publish NotesCreated\n(optional)
+MQ --> NotesConsumer : ack
+
+== Response ==
+Saga --> AppCtrl : success(appointmentId)
+AppCtrl --> Ingress : 201 Created + appointmentId
+Ingress --> User : 201 Created
+
+@enduml

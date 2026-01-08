@@ -1,0 +1,101 @@
+@startuml
+title HAP - Observability + Resilience (C4 L2 - TARGET P3)
+
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam packageStyle rectangle
+
+actor "User (Paciente/Médico/Admin)" as User
+
+package "Kubernetes Cluster" as K8S {
+
+  [Nginx Ingress] as Ingress
+
+  package "Microservices" as MS {
+    component "auth-service" as Auth
+    component "clients-service" as Clients
+    component "doctors-service" as Doctors
+    component "appointments-service" as Appointments
+    component "notes-service" as Notes
+  }
+
+  queue "RabbitMQ (AMQP)" as MQ
+
+  database "PostgreSQL (Supabase)\n(auth)" as DBA
+  database "PostgreSQL (Supabase)\n(appointments)" as DBP
+  database "MongoDB\n(clients)" as DBC
+  database "MongoDB\n(doctors)" as DBD
+  database "MongoDB\n(notes)" as DBN
+
+  package "Observability Stack" as OBS {
+    component "Prometheus" as Prom
+    component "Grafana" as Graf
+    component "Jaeger/Tempo\n(Tracing)" as Trace
+    component "Loki/ELK\n(Logs)" as Logs
+  }
+
+  component "OpenTelemetry Collector\n(optional)" as OTel
+}
+
+' Traffic
+User --> Ingress : HTTPS
+Ingress --> Auth : /auth/*
+Ingress --> Clients : /patients/*
+Ingress --> Doctors : /physicians/*
+Ingress --> Appointments : /appointments/*
+Ingress --> Notes : /records/*
+
+' Data stores (ownership)
+Auth --> DBA
+Appointments --> DBP
+Clients --> DBC
+Doctors --> DBD
+Notes --> DBN
+
+' Async communication
+Appointments --> MQ : publish AppointmentCreatedEvent / Failed
+MQ --> Notes : consume events
+MQ --> Appointments : consume events (if needed)
+
+' --- Observability: metrics ---
+Prom <-- Auth : /actuator/prometheus
+Prom <-- Clients : /actuator/prometheus
+Prom <-- Doctors : /actuator/prometheus
+Prom <-- Appointments : /actuator/prometheus
+Prom <-- Notes : /actuator/prometheus
+
+Graf --> Prom : dashboards + alerts
+
+' --- Observability: logs ---
+Logs <-- Auth : logs (JSON) + correlationId
+Logs <-- Clients : logs (JSON) + correlationId
+Logs <-- Doctors : logs (JSON) + correlationId
+Logs <-- Appointments : logs (JSON) + correlationId
+Logs <-- Notes : logs (JSON) + correlationId
+
+' --- Observability: traces ---
+Auth --> OTel : traces (HTTP)
+Clients --> OTel : traces (HTTP)
+Doctors --> OTel : traces (HTTP)
+Appointments --> OTel : traces (HTTP + AMQP)
+Notes --> OTel : traces (AMQP)
+
+OTel --> Trace : export spans
+Trace --> Graf : trace UI (optional)
+
+' --- Health probes (readiness/liveness) ---
+Ingress ..> Auth : /actuator/health/readiness\n/liveness
+Ingress ..> Clients : /actuator/health/readiness\n/liveness
+Ingress ..> Doctors : /actuator/health/readiness\n/liveness
+Ingress ..> Appointments : /actuator/health/readiness\n/liveness
+Ingress ..> Notes : /actuator/health/readiness\n/liveness
+
+note right of Appointments
+Resilience4j (no código):
+- Retry + Timeout (REST + AMQP)
+- Circuit Breaker (calls Clients/Doctors)
+- Bulkhead (isolamento recursos)
+Métricas exportadas via Micrometer -> Prometheus
+end note
+
+@enduml

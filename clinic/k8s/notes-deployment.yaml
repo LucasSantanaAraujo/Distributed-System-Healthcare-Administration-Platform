@@ -48,6 +48,28 @@ spec:
                   name: rabbitmq-secret
                   key: password
 
+            - name: OTEL_TRACES_SAMPLER
+              value: "always_on"
+            - name: OTEL_SERVICE_NAME
+              value: "notes-service"
+            - name: OTEL_LOG_LEVEL
+              value: "debug"
+            - name: OTEL_LOGS_EXPORTER
+              value: "none"
+            - name: OTEL_METRICS_EXPORTER
+              value: "none"
+            - name: OTEL_TRACES_EXPORTER
+              value: "otlp"
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: "http://otel-collector:4318"
+            - name: OTEL_JAVAAGENT_DEBUG
+              value: "true"
+            - name: JAVA_TOOL_OPTIONS
+              value: "-javaagent:/opentelemetry-javaagent.jar"
+
+
+
+
           readinessProbe:
             httpGet:
               path: /actuator/health

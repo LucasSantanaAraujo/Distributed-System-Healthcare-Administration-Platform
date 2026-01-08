@@ -1,0 +1,59 @@
+@startuml
+title Governance (OpenAPI/Contracts/SLAs/Deprecation + Service Catalog) - TARGET P3
+
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam packageStyle rectangle
+
+package "HAP Microservices" as HAP {
+  component "auth-service" as Auth
+  component "clients-service" as Clients
+  component "doctors-service" as Doctors
+  component "appointments-service" as Appointments
+  component "notes-service" as Notes
+}
+
+component "OpenAPI Specs\n(per service)" as OpenAPI
+component "Contract Tests\n(Pact)" as Pact
+component "Service Catalog\n(Backstage - optional)" as Catalog
+component "SLA/SLO Dashboard\n(Grafana/Docs)" as SLA
+
+component "API Consumers\n(frontend/postman/other services)" as Consumers
+
+Consumers --> HAP : call REST APIs (versioned)
+
+Auth --> OpenAPI : generates/maintains spec
+Clients --> OpenAPI : generates/maintains spec
+Doctors --> OpenAPI : generates/maintains spec
+Appointments --> OpenAPI : generates/maintains spec
+Notes --> OpenAPI : generates/maintains spec
+
+OpenAPI --> Pact : provider/consumer contracts
+Consumers --> Pact : consumer expectations
+Pact --> HAP : verification in CI
+
+HAP --> Catalog : metadata (owner, links, docs)\n(optional)
+HAP --> SLA : export metrics (latency, errors, uptime)
+
+note right of OpenAPI
+Versioning:
+- /v1/... and /v2/...
+- breaking changes => new version
+end note
+
+note right of Consumers
+Deprecation Plan:
+- anunciar depreciação (Sunset/Deprecation headers)
+- manter v1 por X semanas
+- guias de migração para v2
+- remover após prazo
+end note
+
+note bottom of SLA
+SLA/SLO exemplos:
+- availability 99.9%
+- p95 latency < 300ms (GET)
+- error rate < 1%
+end note
+
+@enduml

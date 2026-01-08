@@ -12,7 +12,7 @@ import org.springframework.context.annotation.Configuration;
 public class RabbitMQConfig {
 
     public static final String APPOINTMENTS_EXCHANGE = "appointments.exchange";
-    public static final String APPOINTMENT_CREATED_QUEUE = "notes.appointment.created.queue";
+    public static final String APPOINTMENT_CREATED_QUEUE = "appointments.created.queue";
     public static final String APPOINTMENT_CREATED_ROUTING_KEY = "appointment.created";
 
     // Exchange que o appointments-service usa

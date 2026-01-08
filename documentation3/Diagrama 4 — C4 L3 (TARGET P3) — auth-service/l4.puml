@@ -1,0 +1,69 @@
+@startuml
+title auth-service - Component Diagram (C4 L3 - TARGET P3)
+
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam packageStyle rectangle
+
+package "auth-service" as AUTH {
+
+  component "AuthController\n(Spring REST Controller)" as authController
+  component "TokenController\n(Spring REST Controller)" as tokenController
+
+  component "AuthService\n(Application Service)" as authService
+  component "UserService\n(Application Service)" as userService
+
+  component "JwtTokenService\n(Token issuer/validator)" as jwtService
+  component "PasswordEncoder\n(BCrypt/Argon2)" as passwordEncoder
+
+  component "JwtAuthFilter\n(Security Filter)" as jwtFilter
+  component "AuthorizationRules\n(Roles/Scopes)" as authzRules
+
+  component "UserRepository\n(Spring Data Repository)" as userRepo
+  component "RefreshTokenRepository\n(Spring Data Repository)" as refreshRepo
+
+  component "AuditLogger\n(Security audit events)" as auditLogger
+
+  component "Telemetry\n(Logs/Metrics/Traces)" as telemetry
+}
+
+database "PostgreSQL (Supabase)\nDB auth" as authDb
+
+queue "RabbitMQ (AMQP)" as rabbit
+
+component "API Consumers\n(Ingress -> services)" as consumers
+
+' Entradas
+consumers --> authController : /auth/register, /auth/login
+consumers --> tokenController : /auth/token, /auth/refresh, /auth/introspect
+
+' Security pipeline (no auth-service)
+jwtFilter ..> authController : protege endpoints
+jwtFilter ..> tokenController : protege endpoints
+authzRules ..> jwtFilter : aplica roles/scopes
+
+' Login/Register flow
+authController --> authService : autentica/regista
+authService --> userService : cria/valida utilizador
+authService --> passwordEncoder : hash/verify password
+authService --> jwtService : emite JWT (access)
+authService --> refreshRepo : guarda refresh token (opcional)
+authService --> auditLogger : regista evento de segurança
+authService --> telemetry : logs/metrics/traces
+
+' Token ops
+tokenController --> jwtService : refresh/introspect/validate
+jwtService --> userRepo : (opcional) valida claims/estado
+jwtService --> auditLogger : regista validações/erros
+jwtService --> telemetry : spans/metrics
+
+' Persistência
+userService --> userRepo : lê/escreve
+userRepo --> authDb : JDBC
+refreshRepo --> authDb : JDBC
+
+' Integração assíncrona (opcional, mas muito bom para P3)
+authService --> rabbit : publica eventos (UserRegistered, UserRoleChanged)
+rabbit --> auditLogger : (opcional) consumir para auditoria central
+
+@enduml

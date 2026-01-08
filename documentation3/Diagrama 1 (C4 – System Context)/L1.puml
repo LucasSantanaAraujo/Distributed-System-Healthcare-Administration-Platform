@@ -1,0 +1,30 @@
+@startuml
+' C4-PlantUML (online include)
+!includeurl https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
+
+title HAP - System Context (C4 L1)
+
+' Pessoas (atores)
+Person(patient, "Paciente/Cliente", "Marca consultas e consulta informação clínica.")
+Person(doctor, "Médico", "Gere consultas e regista notas clínicas.")
+Person(admin, "Administrador", "Gere utilizadores, permissões e supervisão.")
+
+' O sistema (uma caixa só)
+System(hap, "HAP (Healthcare Administration Platform)", "Plataforma distribuída para gestão de clínica: pacientes, médicos, consultas e notas.")
+
+' Sistemas externos (fora do HAP)
+System_Ext(obs, "Plataforma de Observabilidade", "Recolha e visualização de logs, métricas e traces.")
+' System_Ext(notif, "Serviço de Notificações", "Email/SMS (opcional)", "Opcional/Futuro")
+
+' Relações (simples e não técnicas)
+Rel(patient, hap, "Usa", "HTTPS")
+Rel(doctor, hap, "Usa", "HTTPS")
+Rel(admin, hap, "Administra", "HTTPS")
+
+Rel(hap, obs, "Envia telemetria", "Logs/Métricas/Traces")
+' Rel(hap, notif, "Envia notificações", "Email/SMS")
+
+' Nota: Auth é INTERNO ao HAP neste nível (não aparece como sistema externo).
+' A validação/geração de JWT vai ficar detalhada no C4 L2 (Container) e no diagrama de segurança.
+
+@enduml

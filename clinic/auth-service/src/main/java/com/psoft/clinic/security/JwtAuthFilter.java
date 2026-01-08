@@ -62,6 +62,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         return uri.startsWith("/login")
                 || uri.equals("/register")
                 || uri.equals("/auth/login")
+                || uri.equals("/auth/debug/log")
                 || uri.equals("/auth/register")
                 || uri.startsWith("/actuator")
                 || uri.startsWith("/h2-console");

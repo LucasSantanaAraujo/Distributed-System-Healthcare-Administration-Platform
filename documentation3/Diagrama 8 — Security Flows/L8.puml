@@ -1,0 +1,65 @@
+@startuml
+title HAP - Security (OAuth2/JWT + mTLS) - TARGET P3
+
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam packageStyle rectangle
+
+actor "User (Paciente/Médico/Admin)" as User
+
+package "Kubernetes Cluster" as K8S {
+
+  [Nginx Ingress (TLS)] as Ingress
+
+  package "Microservices" as MS {
+    component "auth-service\n(OAuth2/JWT issuer)" as Auth
+    component "clients-service\n(Resource Server)" as Clients
+    component "doctors-service\n(Resource Server)" as Doctors
+    component "appointments-service\n(Resource Server)" as Appointments
+    component "notes-service\n(Resource Server)" as Notes
+  }
+
+  queue "RabbitMQ (AMQP)" as MQ
+
+  component "Certificate Authority / cert-manager\n(Issues service certs)" as CA
+}
+
+' --- External user authentication/authorization (OAuth2/JWT) ---
+User --> Ingress : HTTPS (public)
+
+User --> Auth : POST /auth/login\n(credentials)
+Auth --> User : JWT access token (+ refresh token optional)
+
+User --> Ingress : HTTPS + Authorization: Bearer JWT
+Ingress --> Appointments : forward request + JWT
+
+Appointments --> Appointments : validate JWT (signature, exp)\n+ roles/scopes
+Clients --> Clients : validate JWT (signature, exp)\n+ roles/scopes
+Doctors --> Doctors : validate JWT (signature, exp)\n+ roles/scopes
+Notes --> Notes : validate JWT (signature, exp)\n+ roles/scopes
+
+' --- Internal service-to-service (mTLS) ---
+CA --> MS : issue service certificates\n(auth, clients, doctors, appointments, notes)
+
+Appointments -[#blue]-> Clients : REST internal call\nmTLS (client cert + server cert)
+Appointments -[#blue]-> Doctors : REST internal call\nmTLS (client cert + server cert)
+Appointments -[#blue]-> Notes : (optional) internal call\nmTLS
+
+' --- RabbitMQ security (optional but strong for P3) ---
+MS -[#blue]-> MQ : AMQP over TLS\n(optional client cert)
+MQ -[#blue]-> MS : AMQP over TLS
+
+note right of Ingress
+External traffic:
+- TLS termination at Ingress
+- JWT passed to services
+- Services enforce roles/scopes on endpoints
+end note
+
+note right of Appointments
+Zero-trust internal:
+- every service call is authenticated (mTLS)
+- authorization still enforced per endpoint
+end note
+
+@enduml

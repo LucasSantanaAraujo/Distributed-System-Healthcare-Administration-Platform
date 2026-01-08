@@ -1,0 +1,72 @@
+@startuml
+title Scenario (C4+1) - Book Appointment (FAILURE + Compensation)
+
+hide footbox
+skinparam shadowing false
+
+actor "Paciente/Cliente" as User
+participant "Nginx Ingress" as Ingress
+participant "appointments-service\nAppointmentController" as AppCtrl
+participant "appointments-service\nSagaOrchestrator" as Saga
+participant "auth-service\nJWT Validation" as Auth
+participant "clients-service" as Clients
+participant "doctors-service" as Doctors
+participant "RabbitMQ" as MQ
+
+database "Event Store\n(append-only)" as ES
+database "Write DB\n(appointments)" as WDB
+
+participant "ProjectionUpdater\n(appointments)" as ProjApp
+database "Read Model DB\n(appointments-query)" as RDBApp
+
+participant "notes-service\nEventConsumer" as NotesConsumer
+database "MongoDB\n(notes)" as NotesDB
+
+== Command (Write side) ==
+User -> Ingress : POST /appointments\n(Authorization: Bearer JWT)
+Ingress -> AppCtrl : forward request
+
+AppCtrl -> Auth : validate JWT + roles/scopes
+Auth --> AppCtrl : OK (claims)
+
+AppCtrl -> Saga : startSaga(BookAppointmentCommand)\n(correlationId)
+
+== Saga Steps ==
+Saga -> ES : append AppointmentRequested
+ES --> Saga : ack
+
+Saga -> Clients : ValidateClient(clientId)\n(REST)
+Clients --> Saga : ClientValid
+
+Saga -> Doctors : ReserveSlot(doctorId, timeSlot)\n(REST)
+Doctors --> Saga : ERROR (slot unavailable / service failure)
+
+== Compensation / Abort ==
+Saga -> ES : append AppointmentCreationFailed\n(reason = DOCTOR_UNAVAILABLE)
+ES --> Saga : ack
+
+' Optional: if there was any temporary reservation created before error
+' Saga -> Doctors : CancelReservation(reservationId)  (REST)
+' Doctors --> Saga : OK
+
+Saga -> WDB : persist appointment state = FAILED
+WDB --> Saga : OK
+
+Saga -> MQ : publish AppointmentCreationFailed\n(correlationId, clientId, doctorId, timeSlot, reason)
+MQ --> Saga : ack
+
+== Async Projections (Query side) ==
+MQ -> ProjApp : deliver AppointmentCreationFailed
+ProjApp -> RDBApp : update read model (status=FAILED)
+RDBApp --> ProjApp : OK
+
+== Async Notes (should NOT create) ==
+MQ -> NotesConsumer : deliver AppointmentCreationFailed
+NotesConsumer -> NotesConsumer : ignore (no notes created)
+
+== Response ==
+Saga --> AppCtrl : failure(reason)
+AppCtrl --> Ingress : 409 Conflict (or 422) + reason
+Ingress --> User : error response
+
+@enduml

@@ -2,6 +2,7 @@ package com.psoft.clinic.controller;
 
 import com.psoft.clinic.client.ClientsServiceClient;
 import com.psoft.clinic.client.DoctorsServiceClient;
+import com.psoft.clinic.client.RemoteCallResult;
 import com.psoft.clinic.dto.*;
 import com.psoft.clinic.events.AppointmentCreatedEvent;
 import com.psoft.clinic.messaging.AppointmentEventPublisher;
@@ -74,14 +75,23 @@ public class AppointmentController {
         String physicianName = "Médico #" + appt.getPhysicianId();
 
         try {
-            PatientClientResponse patient = clientsServiceClient.getPatientById(appt.getPatientId());
-            if (patient != null) patientName = patient.getName();
+            var patientRes = clientsServiceClient.getPatientById(appt.getPatientId());
+            if (patientRes != null && patientRes.getStatus() == RemoteCallResult.Status.OK && patientRes.getBody() != null) {
+                patientName = patientRes.getBody().getName();
+            }
         } catch (Exception ignored) {}
 
+
         try {
-            PhysicianClientResponse physician = doctorsServiceClient.getPhysicianById(appt.getPhysicianId());
-            if (physician != null) physicianName = physician.getName();
+            var dRes = doctorsServiceClient.getPhysicianById(appt.getPhysicianId());
+            if (dRes != null
+                    && dRes.getStatus() == RemoteCallResult.Status.OK
+                    && dRes.getBody() != null
+                    && dRes.getBody().getName() != null) {
+                physicianName = dRes.getBody().getName();
+            }
         } catch (Exception ignored) {}
+
 
         AppointmentResponse resp = AppointmentResponse.builder()
                 .id(appt.getId())
@@ -132,14 +142,25 @@ public class AppointmentController {
             String physicianName = "Médico #" + a.getPhysicianId();
 
             try {
-                var p = clientsServiceClient.getPatientById(a.getPatientId());
-                if (p != null) patientName = p.getName();
+                var pRes = clientsServiceClient.getPatientById(a.getPatientId());
+                if (pRes != null
+                        && pRes.getStatus() == RemoteCallResult.Status.OK
+                        && pRes.getBody() != null
+                        && pRes.getBody().getName() != null) {
+                    patientName = pRes.getBody().getName();
+                }
             } catch (Exception ignored) {}
 
             try {
-                var d = doctorsServiceClient.getPhysicianById(a.getPhysicianId());
-                if (d != null) physicianName = d.getName();
+                var dRes = doctorsServiceClient.getPhysicianById(a.getPhysicianId());
+                if (dRes != null
+                        && dRes.getStatus() == RemoteCallResult.Status.OK
+                        && dRes.getBody() != null
+                        && dRes.getBody().getName() != null) {
+                    physicianName = dRes.getBody().getName();
+                }
             } catch (Exception ignored) {}
+
 
             return AppointmentResponse.builder()
                     .id(a.getId())
@@ -167,14 +188,25 @@ public class AppointmentController {
         String physicianName = "Médico #" + a.getPhysicianId();
 
         try {
-            var p = clientsServiceClient.getPatientById(a.getPatientId());
-            if (p != null) patientName = p.getName();
+            var pRes = clientsServiceClient.getPatientById(a.getPatientId());
+            if (pRes != null
+                    && pRes.getStatus() == RemoteCallResult.Status.OK
+                    && pRes.getBody() != null
+                    && pRes.getBody().getName() != null) {
+                patientName = pRes.getBody().getName();
+            }
         } catch (Exception ignored) {}
 
         try {
-            var d = doctorsServiceClient.getPhysicianById(a.getPhysicianId());
-            if (d != null) physicianName = d.getName();
+            var dRes = doctorsServiceClient.getPhysicianById(a.getPhysicianId());
+            if (dRes != null
+                    && dRes.getStatus() == RemoteCallResult.Status.OK
+                    && dRes.getBody() != null
+                    && dRes.getBody().getName() != null) {
+                physicianName = dRes.getBody().getName();
+            }
         } catch (Exception ignored) {}
+
 
         return ResponseEntity.ok(
                 AppointmentResponse.builder()

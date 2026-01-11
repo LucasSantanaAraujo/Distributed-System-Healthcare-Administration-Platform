@@ -1,0 +1,77 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: keycloak
+  namespace: clinic
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: keycloak
+  template:
+    metadata:
+      labels:
+        app: keycloak
+    spec:
+      containers:
+        - name: keycloak
+          image: quay.io/keycloak/keycloak:24.0.5
+          args: ["start-dev"]
+          env:
+            - name: KEYCLOAK_ADMIN
+              value: "admin"
+            - name: KEYCLOAK_ADMIN_PASSWORD
+              value: "admin"
+
+            - name: KC_PROXY
+              value: "edge"
+            - name: KC_PROXY_HEADERS
+              value: "xforwarded"
+
+            - name: KC_HTTP_ENABLED
+              value: "true"
+
+            # Keycloak atrás de /keycloak
+            - name: KC_HTTP_RELATIVE_PATH
+              value: "/keycloak"
+
+            # URL externa "canónica" (isto força o issuer a ser clinic.local)
+            - name: KC_HOSTNAME_URL
+              value: "http://clinic.local/keycloak"
+
+            # IMPORTANTÍSSIMO: não prender o backchannel ao hostname externo
+            - name: KC_HOSTNAME_STRICT
+              value: "false"
+            - name: KC_HOSTNAME_STRICT_BACKCHANNEL
+              value: "false"
+
+
+
+          ports:
+            - name: http
+              containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /keycloak/
+              port: 8080
+            initialDelaySeconds: 45
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /keycloak/
+              port: 8080
+            initialDelaySeconds: 90
+            periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: keycloak
+  namespace: clinic
+spec:
+  selector:
+    app: keycloak
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080

@@ -2,6 +2,7 @@ package com.psoft.clinic.saga;
 
 import com.psoft.clinic.client.ClientsServiceClient;
 import com.psoft.clinic.client.DoctorsServiceClient;
+import com.psoft.clinic.client.RemoteCallResult;
 import com.psoft.clinic.dto.PatientClientResponse;
 import com.psoft.clinic.dto.PhysicianClientResponse;
 import com.psoft.clinic.events.AppointmentCreatedEvent;
@@ -54,16 +55,36 @@ public class BookAppointmentSagaOrchestrator {
             saga.setUpdatedAt(Instant.now());
             sagaRepo.save(saga);
 
-            PatientClientResponse patient = clientsServiceClient.getPatientById(cmd.getPatientId());
-            if (patient == null) return fail(saga, "Paciente não encontrado no clients-service.");
+            var patientRes = clientsServiceClient.getPatientById(cmd.getPatientId());
+
+            if (patientRes.getStatus() == RemoteCallResult.Status.NOT_FOUND) {
+                return fail(saga, "Paciente não encontrado no clients-service.");
+            }
+
+            if (patientRes.getStatus() != RemoteCallResult.Status.OK) {
+                return fail(saga, "clients-service indisponível: " + patientRes.getError());
+            }
+
+            PatientClientResponse patient = patientRes.getBody();
+
 
             // 2) validar médico
             saga.setCurrentStep(BookAppointmentStep.VALIDATE_PHYSICIAN.name());
             saga.setUpdatedAt(Instant.now());
             sagaRepo.save(saga);
 
-            PhysicianClientResponse physician = doctorsServiceClient.getPhysicianById(cmd.getPhysicianId());
-            if (physician == null) return fail(saga, "Médico não encontrado no doctors-service.");
+            var physicianRes = doctorsServiceClient.getPhysicianById(cmd.getPhysicianId());
+
+            if (physicianRes.getStatus() == RemoteCallResult.Status.NOT_FOUND) {
+                return fail(saga, "Médico não encontrado no doctors-service.");
+            }
+
+            if (physicianRes.getStatus() != RemoteCallResult.Status.OK) {
+                return fail(saga, "doctors-service indisponível: " + physicianRes.getError());
+            }
+
+            PhysicianClientResponse physician = physicianRes.getBody();
+
 
             // 3) conflitos (na projeção)
             saga.setCurrentStep(BookAppointmentStep.CHECK_CONFLICTS.name());

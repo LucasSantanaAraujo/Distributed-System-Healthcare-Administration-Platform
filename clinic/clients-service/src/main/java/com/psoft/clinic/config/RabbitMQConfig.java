@@ -12,7 +12,7 @@ import org.springframework.context.annotation.Configuration;
 public class RabbitMQConfig {
 
     // ============================================================
-    // 1. CONFIGURAÇÃO DE CLIENTS (O que falta para o erro desaparecer)
+    // 1. CONFIGURAÇÃO DE CLIENTS
     // ============================================================
     public static final String CLIENTS_EXCHANGE = "clients-exchange";
     public static final String PATIENT_CREATED_QUEUE = "patient.created.queue";
@@ -37,7 +37,7 @@ public class RabbitMQConfig {
     }
 
     // ============================================================
-    // 2. CONFIGURAÇÃO DE APPOINTMENTS (Que já tinhas)
+    // 2. CONFIGURAÇÃO DE APPOINTMENTS
     // ============================================================
     public static final String APPOINTMENTS_EXCHANGE = "appointments.exchange";
     public static final String APPOINTMENTS_CREATED_CLIENTS_QUEUE = "appointments.created.clients.queue";

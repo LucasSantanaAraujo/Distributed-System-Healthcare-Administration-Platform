@@ -1,0 +1,46 @@
+@startuml
+title Fluxo de Indisponibilidade de Médico (RabbitMQ)
+autonumber
+
+actor Admin as "Administrador"
+participant DocCtrl as "PhysicianController\n(doctors-service)"
+queue Rabbit as "RabbitMQ\n(Exchange: doctors-exchange)"
+participant AppService as "AppointmentService\n(appointments-service)"
+database AppDB as "PostgreSQL\n(Appointments)"
+
+Note over Admin, DocCtrl: POST /physicians/unavailable\n{id: 2, from:..., to:...}
+
+Admin -> DocCtrl: markPhysicianUnavailable(...)
+activate DocCtrl
+
+    note right of Admin: Requer Role: ADMIN
+
+    DocCtrl -> DocCtrl: Criar PhysicianUnavailableEvent
+
+    DocCtrl -> Rabbit: convertAndSend(routingKey, event)
+    activate Rabbit
+    note right: "Fire and Forget"
+
+    Rabbit --> DocCtrl: Ack
+    deactivate Rabbit
+
+    DocCtrl --> Admin: 200 OK "Indisponibilidade enviada"
+deactivate DocCtrl
+
+par Processamento Assíncrono
+    Rabbit -> AppService: Consome Evento (Queue Listener)
+    activate AppService
+
+    AppService -> AppDB: Buscar consultas no intervalo
+    activate AppDB
+    AppDB --> AppService: Lista de Consultas
+    deactivate AppDB
+
+    loop Para cada consulta conflituosa
+        AppService -> AppDB: Atualizar Status (CANCELLED/RESCHEDULED)
+        AppService -> AppService: Notificar Paciente (Opcional)
+    end
+
+    deactivate AppService
+end
+@enduml

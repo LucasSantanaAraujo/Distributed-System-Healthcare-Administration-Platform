@@ -1,0 +1,56 @@
+@startuml
+title Fluxo de Pesquisa e Detalhes (Doctors Service)
+autonumber
+
+actor Patient as "Paciente / Frontend"
+participant DocCtrl as "PhysicianController"
+database Mongo as "MongoDB"
+
+box "Doctors Service" #LightBlue
+    participant DocCtrl
+    participant Mongo
+end box
+
+== Cenário A: Pesquisa (Search) ==
+
+Patient -> DocCtrl: GET /physicians/search?query=Cardio
+activate DocCtrl
+
+    note right of Patient: Requer Role: PATIENT
+
+    DocCtrl -> Mongo: findByNameOrSpecialty("Cardio")
+    activate Mongo
+    Mongo --> DocCtrl: List<Physician> (Entities)
+    deactivate Mongo
+
+    DocCtrl -> DocCtrl: Converter Entity -> PhysicianResponse (DTO)
+    note right: Remove dados sensíveis (se houver)
+
+    DocCtrl --> Patient: JSON [ {id: 2, name: "Dr. House", ...} ]
+
+deactivate DocCtrl
+
+== Cenário B: Obter Detalhes (Get By ID) ==
+
+Patient -> DocCtrl: GET /physicians/{id}
+activate DocCtrl
+
+    DocCtrl -> Mongo: findById(id)
+    activate Mongo
+    Mongo --> DocCtrl: Optional<Physician>
+    deactivate Mongo
+
+    alt Physician Not Found
+        DocCtrl --> Patient: 404 Not Found
+    else Found
+        alt Header X-INTERNAL-KEY presente?
+            DocCtrl --> Patient: Retorna Entidade Completa (JSON)
+            note right: Uso interno entre microsserviços
+        else Acesso Externo (Patient/Admin)
+            DocCtrl -> DocCtrl: Map to PhysicianResponse (DTO)
+            DocCtrl --> Patient: Retorna DTO Limitado
+        end
+    end
+
+deactivate DocCtrl
+@enduml

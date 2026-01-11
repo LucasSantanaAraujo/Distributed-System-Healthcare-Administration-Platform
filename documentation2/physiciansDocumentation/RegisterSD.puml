@@ -1,0 +1,58 @@
+@startuml
+title Fluxo de Registo de Médico (Auth -> Doctors)
+autonumber
+
+actor Admin as "Administrador"
+participant AuthCtrl as "AuthController\n(auth-service)"
+database UserDB as "PostgreSQL\n(Users)"
+participant DocCtrl as "PhysicianController\n(doctors-service)"
+database Mongo as "MongoDB\n(Physicians)"
+participant FS as "File System\n(Uploads)"
+
+Note over Admin, AuthCtrl: POST /auth/register/physician\n(Multipart: Dados + Foto)
+
+Admin -> AuthCtrl: registerPhysician(...)
+activate AuthCtrl
+
+    AuthCtrl -> UserDB: existsByEmail(email)
+    activate UserDB
+    UserDB --> AuthCtrl: false
+    deactivate UserDB
+
+    alt Foto existe?
+        AuthCtrl -> FS: save(photo)
+        FS --> AuthCtrl: photoPath
+    end
+
+    AuthCtrl -> UserDB: save(User [Role: PHYSICIAN])
+    activate UserDB
+    UserDB --> AuthCtrl: User Saved (ID: 101)
+    deactivate UserDB
+
+    Note right of AuthCtrl: Início da Chamada Síncrona (REST)
+
+    AuthCtrl -> AuthCtrl: Preparar PhysicianCreateRequest
+
+    AuthCtrl -> DocCtrl: POST /physicians/internal
+    note right: Header: X-INTERNAL-KEY
+    activate DocCtrl
+
+        DocCtrl -> Mongo: findByUserId(101)
+        alt Já existe?
+            Mongo --> DocCtrl: true
+            DocCtrl --> AuthCtrl: 200 OK "Médico já existente"
+        else Novo Médico
+            DocCtrl -> DocCtrl: Gerar ID Sequencial
+            DocCtrl -> Mongo: save(Physician)
+            activate Mongo
+            Mongo --> DocCtrl: Success
+            deactivate Mongo
+            DocCtrl --> AuthCtrl: 200 OK "Médico criado"
+        end
+
+    deactivate DocCtrl
+
+    AuthCtrl --> Admin: 200 OK "Médico registado com sucesso!"
+
+deactivate AuthCtrl
+@enduml

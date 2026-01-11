@@ -6,9 +6,9 @@ import com.psoft.clinic.dto.PatientUpdateRequest;
 import com.psoft.clinic.model.Patient;
 import com.psoft.clinic.repository.PatientRepository;
 import com.psoft.clinic.service.SequenceGeneratorService;
-import com.psoft.clinic.saga.CreatePatientSagaOrchestrator; // Import Novo
-import com.psoft.clinic.saga.CreatePatientCommand;        // Import Novo
-import com.psoft.clinic.saga.SagaResult;                  // Import Novo
+import com.psoft.clinic.saga.CreatePatientSagaOrchestrator;
+import com.psoft.clinic.saga.CreatePatientCommand;
+import com.psoft.clinic.saga.SagaResult;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -42,14 +42,14 @@ public class PatientController {
     private String internalApiKey;
 
     // ------------------------------------------------------------------------
-    // 🔹 ENDPOINT INTERNO — Agora usa SAGA Orchestrator
+    // 🔹 ENDPOINT INTERNO - Com SAGA Orchestrator
     // ------------------------------------------------------------------------
     @PostMapping("/internal")
     public ResponseEntity<?> createPatientInternal(@RequestBody PatientCreateRequest request) {
 
         log.info("➡️ [createPatientInternal] A iniciar SAGA para UserID: {}", request.getUserId());
 
-        // 1. Criar o Comando com os dados do Request
+        //Criar Comando com os dados do Request
         CreatePatientCommand command = new CreatePatientCommand(
                 request.getUserId(),
                 request.getName(),
@@ -59,21 +59,21 @@ public class PatientController {
                 request.getConsent()
         );
 
-        // 2. Iniciar a Saga
+        //Iniciar a Saga
         SagaResult result = sagaOrchestrator.start(command);
 
-        // 3. Verificar Resultado
+        //Verificar Resultado
         if (result.isSuccess()) {
-            log.info("✅ SAGA Sucesso. CorrelationID: {}", result.getCorrelationId());
+            log.info("SAGA Sucesso. CorrelationID: {}", result.getCorrelationId());
             return ResponseEntity.ok("Paciente criado com sucesso! (Saga ID: " + result.getCorrelationId() + ")");
         } else {
-            log.error("❌ SAGA Falhou. Motivo: {}", result.getError());
+            log.error("SAGA Falhou. Motivo: {}", result.getError());
             return ResponseEntity.badRequest().body("Erro ao criar paciente: " + result.getError());
         }
     }
 
     // ------------------------------------------------------------------------
-    // 🔹 ENDPOINT INTERNO — usado pelo appointments-service
+    // 🔹 ENDPOINT INTERNO - usado pelo appointments-service
     // ------------------------------------------------------------------------
     @GetMapping("/{id}")
     public ResponseEntity<?> getPatientById(

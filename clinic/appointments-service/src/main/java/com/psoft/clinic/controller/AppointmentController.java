@@ -16,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import com.psoft.clinic.eventsourcing.AppointmentProjectionRebuilder;
 
 import java.time.LocalDate;
 import java.time.Period;
@@ -35,8 +36,10 @@ public class AppointmentController {
     private final AppointmentRepository appointmentRepository;
     private final ClientsServiceClient clientsServiceClient;
     private final DoctorsServiceClient doctorsServiceClient;
-    private final AppointmentEventPublisher eventPublisher;
     private final BookAppointmentSagaOrchestrator saga;
+    private final com.psoft.clinic.eventsourcing.AppointmentEventRepository appointmentEventRepository;
+    private final AppointmentProjectionRebuilder rebuilder;
+
 
 
     // ADMIN agenda uma consulta entre um paciente (clients-service) e um médico (doctors-service)
@@ -52,7 +55,7 @@ public class AppointmentController {
                 request.getPatientId(),
                 request.getPhysicianId(),
                 dateTime,
-                request.getReason(),
+                request.getReason(), // ou request.getReason()
                 "ADMIN"
         ));
 
@@ -185,45 +188,6 @@ public class AppointmentController {
         );
     }
 
-    // PATIENT → marca consulta (recebe patientId no body)
-    @PreAuthorize("hasRole('PATIENT')")
-    @PostMapping("/patient")
-    public ResponseEntity<?> scheduleAsPatient(@RequestBody PatientAppointmentRequest request) {
-
-        LocalDateTime dateTime = DateTimeUtils.truncateToMinute(request.getDateTime());
-
-        // validar médico
-        PhysicianClientResponse physician = doctorsServiceClient.getPhysicianById(request.getPhysicianId());
-        if (physician == null) {
-            return ResponseEntity.status(404).body("Médico não encontrado no doctors-service.");
-        }
-
-        // validar paciente
-        PatientClientResponse patient = clientsServiceClient.getPatientById(request.getPatientId());
-        if (patient == null) {
-            return ResponseEntity.status(404).body("Paciente não encontrado no clients-service.");
-        }
-
-        // conflitos
-        if (appointmentRepository.existsByPhysicianIdAndDateTime(request.getPhysicianId(), dateTime)) {
-            return ResponseEntity.status(409).body("Médico indisponível nesse horário.");
-        }
-        if (appointmentRepository.existsByPatientIdAndDateTime(request.getPatientId(), dateTime)) {
-            return ResponseEntity.status(409).body("Já tens consulta marcada nesse horário.");
-        }
-
-        // criar
-        Appointment appt = Appointment.builder()
-                .physicianId(request.getPhysicianId())
-                .patientId(request.getPatientId())
-                .dateTime(dateTime)
-                .reason(request.getConsultationType())
-                .status(AppointmentStatus.PENDING)
-                .build();
-        appointmentRepository.save(appt);
-
-        return ResponseEntity.ok("Consulta marcada com sucesso.");
-    }
 
     // ADMIN/PATIENT → alterar estado (CONFIRMED/CANCELLED/RESCHEDULED)
     @PreAuthorize("hasAnyRole('ADMIN','PATIENT')")
@@ -291,5 +255,21 @@ public class AppointmentController {
 
         return ResponseEntity.ok(results);
     }
+
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @GetMapping("/{id}/events")
+    public ResponseEntity<?> getAppointmentEvents(@PathVariable Long id) {
+        return ResponseEntity.ok(appointmentEventRepository.findByAggregateIdOrderByVersionAsc(id));
+    }
+
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @PostMapping("/admin/rebuild-projection")
+    public ResponseEntity<?> rebuildProjection() {
+        int total = rebuilder.rebuildAll();
+        return ResponseEntity.ok("Rebuild concluído. Eventos aplicados: " + total);
+    }
+
 }
 

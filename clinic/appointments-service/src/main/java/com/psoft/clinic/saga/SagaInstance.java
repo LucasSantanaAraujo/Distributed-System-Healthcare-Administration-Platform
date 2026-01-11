@@ -17,9 +17,10 @@ public class SagaInstance {
     private String correlationId;
 
     private String sagaType;      // "BOOK_APPOINTMENT"
-    private String status;        // STARTED, BOOKED, FAILED
-    private Long appointmentId;   // preenchido quando tiver sucesso
-    private String error;         // preenchido se falhar
+    private String status;        // STARTED, BOOKED, FAILED, FAILED_COMPENSATED...
+    private String currentStep;   // VALIDATE_PATIENT, CREATE_APPOINTMENT, PUBLISH_EVENT...
+    private Long appointmentId;
+    private String error;
 
     private Instant createdAt;
     private Instant updatedAt;

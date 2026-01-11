@@ -7,7 +7,7 @@ public class SagaResult {
 
     private final boolean success;
     private final String correlationId;
-    private final Long entityId; // Representa o ID do Paciente criado
+    private final Long entityId; // ID do paciente criado
     private final String error;
 
     public SagaResult(boolean success, String correlationId, Long entityId, String error) {
@@ -17,7 +17,6 @@ public class SagaResult {
         this.error = error;
     }
 
-    // Métodos estáticos auxiliares usados no Orquestrador
     public static SagaResult ok(String correlationId, Long entityId) {
         return new SagaResult(true, correlationId, entityId, null);
     }

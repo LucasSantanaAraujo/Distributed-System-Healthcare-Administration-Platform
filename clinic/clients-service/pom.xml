@@ -68,9 +68,15 @@
 			<artifactId>opentelemetry-exporter-otlp</artifactId>
 		</dependency>
 
-
-
-
+		<dependency>
+			<groupId>io.github.resilience4j</groupId>
+			<artifactId>resilience4j-spring-boot3</artifactId>
+			<version>2.2.0</version>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-aop</artifactId>
+		</dependency>
 
 		<!-- Bean Validation -->
 		<dependency>

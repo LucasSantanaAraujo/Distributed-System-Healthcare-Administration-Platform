@@ -6,19 +6,23 @@ import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.Instant;
 
-@Document(collection = "saga_instances") // Mudou de @Entity/@Table para @Document
-@Getter @Setter
+@Document(collection = "saga_instances")
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 public class SagaInstance {
 
-    @Id // Importado de org.springframework.data.annotation.Id
+    @Id
     private String correlationId;
 
     private String sagaType;
     private String status;
-    private Long appointmentId;   // (Aqui representa o patientId)
+
+    // Em vez de "_id", usamos "entityId" (mais limpo)
+    private Long entityId;
+
     private String error;
 
     private Instant createdAt;

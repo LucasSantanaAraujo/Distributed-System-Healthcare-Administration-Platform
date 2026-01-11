@@ -1,14 +1,13 @@
 package com.psoft.clinic.saga;
 
-import com.psoft.clinic.events.PatientCreatedEvent; // Vais precisar de criar este evento ou usar um genérico map
+import com.psoft.clinic.config.RabbitMQConfig;
+import com.psoft.clinic.events.PatientCreatedEvent;
 import com.psoft.clinic.model.Patient;
 import com.psoft.clinic.repository.PatientRepository;
 import com.psoft.clinic.service.SequenceGeneratorService;
-import com.psoft.clinic.config.RabbitMQConfig; // Assume-se que tens a config das filas
 import lombok.RequiredArgsConstructor;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -22,11 +21,10 @@ public class CreatePatientSagaOrchestrator {
     private final SagaInstanceRepository sagaRepo;
     private final RabbitTemplate rabbitTemplate;
 
-    // Inicia a SAGA
     public SagaResult start(CreatePatientCommand cmd) {
         String correlationId = UUID.randomUUID().toString();
 
-        // 1. Criar Registo da SAGA (Audit/Event Sourcing)
+        // 1) Criar registo da saga
         sagaRepo.save(SagaInstance.builder()
                 .correlationId(correlationId)
                 .sagaType("CREATE_PATIENT")
@@ -38,12 +36,12 @@ public class CreatePatientSagaOrchestrator {
         Patient patient = null;
 
         try {
-            // 2. Validações de Negócio
+            // 2) Validação: já existe paciente com este userId?
             if (patientRepository.findByUserId(cmd.getUserId()).isPresent()) {
                 return fail(correlationId, "Paciente já existe com este User ID.", null);
             }
 
-            // 3. Execução Local (Criar o Paciente)
+            // 3) Criar paciente localmente
             patient = new Patient();
             patient.setId(sequenceGeneratorService.generateSequence("patients_sequence"));
             patient.setUserId(cmd.getUserId());
@@ -55,28 +53,27 @@ public class CreatePatientSagaOrchestrator {
 
             patientRepository.save(patient);
 
-            // 4. Publicar Evento (Assíncrono) - Para notificar outros serviços (ex: reports)
-            // Se isto falhar, o catch apanha e faz rollback do passo 3
+            // 4) Publicar evento (se falhar -> lança exceção -> entra na compensação)
             publishPatientCreated(patient);
 
-            // 5. Sucesso - Atualiza SAGA
+            // 5) Marcar saga como COMPLETED
             SagaInstance s = sagaRepo.findById(correlationId).orElseThrow();
             s.setStatus("COMPLETED");
-            s.setAppointmentId(patient.getId()); // Reutilizando o campo, ou cria um entityId genérico
+            s.setEntityId(patient.getId());
             s.setUpdatedAt(Instant.now());
             sagaRepo.save(s);
 
             return SagaResult.ok(correlationId, patient.getId());
 
         } catch (Exception e) {
-            // Se falhar, passamos o paciente criado (se existir) para ser apagado (Compensação)
+            // Se falhar depois de criar paciente, vamos compensar (apagar)
             return fail(correlationId, "Erro inesperado: " + e.getMessage(), patient);
         }
     }
 
-    // Lógica de Compensação e Registo de Erro
     private SagaResult fail(String correlationId, String error, Patient patientToDelete) {
-        // COMPENSACÃO: Se o paciente chegou a ser guardado na BD mas o processo falhou depois, apagamos.
+
+        // Compensação: apagar paciente se já foi criado
         if (patientToDelete != null && patientToDelete.getId() != null) {
             try {
                 patientRepository.delete(patientToDelete);
@@ -86,7 +83,7 @@ public class CreatePatientSagaOrchestrator {
             }
         }
 
-        // PERSISTÊNCIA DO ERRO (Event Sourcing do pobre)
+        // Guardar falha na saga
         SagaInstance s = sagaRepo.findById(correlationId).orElse(null);
         if (s != null) {
             s.setStatus("FAILED");
@@ -94,31 +91,33 @@ public class CreatePatientSagaOrchestrator {
             s.setUpdatedAt(Instant.now());
             sagaRepo.save(s);
         }
+
         return SagaResult.fail(correlationId, error);
     }
 
+    /**
+     * Agora este método NÃO engole exceções.
+     * Se o RabbitMQ falhar, lança RuntimeException para a saga falhar.
+     */
     private void publishPatientCreated(Patient p) {
-        try {
-            PatientCreatedEvent event = new PatientCreatedEvent(
-                    p.getId(),
-                    p.getUserId(),
-                    p.getName(),
-                    p.getContact(),
-                    p.getBirthDate()
-            );
+        PatientCreatedEvent event = new PatientCreatedEvent(
+                p.getId(),
+                p.getUserId(),
+                p.getName(),
+                p.getContact(),
+                p.getBirthDate()
+        );
 
+        try {
             rabbitTemplate.convertAndSend(
                     RabbitMQConfig.CLIENTS_EXCHANGE,
                     RabbitMQConfig.PATIENT_CREATED_ROUTING_KEY,
                     event
             );
-
             System.out.println("📨 Evento PatientCreated enviado para o RabbitMQ!");
-
         } catch (Exception e) {
             System.err.println("⚠️ Erro ao publicar evento RabbitMQ: " + e.getMessage());
-            // Nota: Não fazemos throw aqui para não reverter a criação do paciente
-            // (a criação na BD foi sucesso, o evento é secundário)
+            throw new RuntimeException("Falha ao publicar evento PatientCreated no RabbitMQ.", e);
         }
     }
 }

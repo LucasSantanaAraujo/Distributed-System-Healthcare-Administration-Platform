@@ -19,6 +19,8 @@ public class SagaInstance {
 
     private String sagaType;
     private String status;
+    private Long patientId;       // ou Long, depende do teu Patient.getId()
+    private Boolean eventPublished;
 
     // Em vez de "_id", usamos "entityId" (mais limpo)
     private Long entityId;
@@ -27,4 +29,7 @@ public class SagaInstance {
 
     private Instant createdAt;
     private Instant updatedAt;
+
+
+
 }

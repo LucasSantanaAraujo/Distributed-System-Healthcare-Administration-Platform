@@ -11,7 +11,7 @@ import java.time.LocalDate;
 @AllArgsConstructor
 public class PatientCreatedEvent {
     private Long id;
-    private Long userId;
+    private String userId;
     private String name;
     private String contact;
     private LocalDate birthDate;

@@ -7,7 +7,7 @@ import java.time.LocalDate;
 @Data
 @AllArgsConstructor
 public class PatientCreateRequest {
-    private Long userId;
+    private String userId;
     private String name;
     private LocalDate birthDate;
     private String phone;

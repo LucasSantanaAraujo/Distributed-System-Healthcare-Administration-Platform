@@ -10,5 +10,5 @@ public interface PatientRepository extends MongoRepository<Patient, Long> {
 
     List<Patient> findByNameContainingIgnoreCase(String name);
 
-    Optional<Patient> findByUserId(Long userId);
+    Optional<Patient> findByUserId(String userId);
 }

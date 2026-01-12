@@ -4,7 +4,7 @@ metadata:
   name: notes-service
   namespace: clinic
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: notes-service

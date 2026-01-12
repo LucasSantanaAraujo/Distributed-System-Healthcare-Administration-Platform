@@ -26,6 +26,14 @@ public class InternalApiKeyFilter extends OncePerRequestFilter {
 
         String uri = request.getRequestURI();
         String headerKey = request.getHeader("X-INTERNAL-KEY");
+
+// ✅ se é endpoint interno e não traz key -> BLOQUEIA
+        if (uri.equals("/patients/internal") && headerKey == null) {
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.getWriter().write("{\"error\":\"Missing internal key.\"}");
+            return;
+        }
+
         String authHeader = request.getHeader("Authorization");
 
         System.out.println("🔍 [InternalApiKeyFilter] URI: " + uri);

@@ -17,7 +17,7 @@ public class Patient {
     @Id
     private Long id; // Agora gerido manualmente no service (não há @GeneratedValue)
 
-    private Long userId; // ID do utilizador do auth-service
+    private String userId; // ID do utilizador do auth-service
     private String name;
     private LocalDate birthDate;
     private String contact;

@@ -31,7 +31,7 @@ public class DataInitializer {
             );
 
             for (Object[] p : pacientes) {
-                Long userId = (Long) p[0];
+                String userId = String.valueOf(p[0]);
 
                 if (patientRepository.findByUserId(userId).isEmpty()) {
                     Patient patient = Patient.builder()

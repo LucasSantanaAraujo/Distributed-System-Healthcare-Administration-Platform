@@ -3,47 +3,34 @@ package com.psoft.clinic.controller;
 import com.psoft.clinic.dto.AuthRequest;
 import com.psoft.clinic.dto.AuthResponse;
 import com.psoft.clinic.dto.PatientCreateRequest;
-import com.psoft.clinic.model.Role;
-import com.psoft.clinic.model.User;
-import com.psoft.clinic.repository.UserRepository;
-import com.psoft.clinic.security.JwtUtil;
-import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.AuthenticationException;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.web.bind.annotation.*;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
-import org.springframework.web.client.RestTemplate;
 import com.psoft.clinic.dto.PhysicianCreateRequest;
+import com.psoft.clinic.keycloak.KeycloakClient;
+import com.psoft.clinic.keycloak.dto.KeycloakTokenResponse;
+import com.psoft.clinic.model.Role;
+import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.*;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.client.RestTemplate;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
 import java.io.IOException;
-import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/auth")
 @RequiredArgsConstructor
 public class AuthController {
 
-    private final AuthenticationManager authenticationManager;
-    private final UserRepository userRepository;
-    private final PasswordEncoder passwordEncoder;
-    private final JwtUtil jwtUtil;
-    private final RestTemplate restTemplate = new RestTemplate();
     private static final Logger logger = LoggerFactory.getLogger(AuthController.class);
 
+    private final KeycloakClient keycloakClient;
+    private final RestTemplate restTemplate = new RestTemplate();
 
-    // Configuração opcional via application.properties
-    @Value("${app.clients-service.url:http://clients-service:8080}")
+    @Value("${app.clients-service.url}")
     private String clientsServiceUrl;
 
     @Value("${app.doctors-service.url}")
@@ -64,89 +51,83 @@ public class AuthController {
                 password.matches(".*[!@#$%^&*()_+\\-=\\[\\]{};':\"\\\\|,.<>\\/?].*");
     }
 
+    private String mapRoleToKeycloak(Role role) {
+        // Ajusta aqui se no Keycloak os roles tiverem outro nome.
+        // Pelo teu token tens "ADMIN" uppercase.
+        return role.name(); // PATIENT / PHYSICIAN / ADMIN
+    }
+
     // ----------------------------------------------------------
-    // REGISTO
+    // REGISTO (Keycloak + criar Patient no clients-service)
     @PostMapping("/register")
     public ResponseEntity<?> register(@RequestBody AuthRequest request) {
-        if (userRepository.existsByEmail(request.getEmail())) {
-            return ResponseEntity.badRequest().body("Email já registado.");
-        }
 
         if (!isPasswordValid(request.getPassword())) {
             return ResponseEntity.badRequest().body("Password inválida.");
         }
 
         Role roleToAssign = request.getRole() != null ? request.getRole() : Role.PATIENT;
+        String kcRole = mapRoleToKeycloak(roleToAssign);
 
-        User user = User.builder()
-                .name(request.getName())
-                .email(request.getEmail())
-                .password(passwordEncoder.encode(request.getPassword()))
-                .role(roleToAssign)
-                .birthDate(request.getBirthDate())
-                .phone(request.getPhone())
-                .insuranceInfo(request.getInsuranceInfo())
-                .consent(request.getConsent())
-                .build();
-
-        userRepository.save(user);
-
-        String token = jwtUtil.generateToken(user);
-
-        // ===============================================
-        // Criação no serviço correto (só para pacientes)
-        // ===============================================
-        if (roleToAssign == Role.PATIENT) {
-            PatientCreateRequest patientRequest = new PatientCreateRequest(
-                    user.getId(),
-                    user.getName(),
-                    user.getBirthDate(),
-                    user.getPhone(),
-                    user.getInsuranceInfo(),
-                    user.getConsent()
+        try {
+            // 1) Criar user no Keycloak (o ID devolvido é o UUID do Keycloak)
+            String keycloakUserId = keycloakClient.createUser(
+                    request.getEmail(),
+                    request.getName(),
+                    request.getPassword(),
+                    kcRole
             );
 
-            HttpHeaders headers = new HttpHeaders();
-            headers.set("X-INTERNAL-KEY", internalApiKey);
-            headers.setContentType(MediaType.APPLICATION_JSON);
+            // 2) Se for patient: cria no clients-service via internal endpoint
+            if (roleToAssign == Role.PATIENT) {
+                PatientCreateRequest patientRequest = new PatientCreateRequest(
+                        keycloakUserId,
+                        request.getName(),
+                        request.getBirthDate(),
+                        request.getPhone(),
+                        request.getInsuranceInfo(),
+                        request.getConsent()
+                );
 
-            HttpEntity<PatientCreateRequest> entity = new HttpEntity<>(patientRequest, headers);
+                HttpHeaders headers = new HttpHeaders();
+                headers.set("X-INTERNAL-KEY", internalApiKey);
+                headers.setContentType(MediaType.APPLICATION_JSON);
 
-            restTemplate.postForEntity(
-                    clientsServiceUrl + "/patients/internal",
-                    entity,
-                    String.class
-            );
+                HttpEntity<PatientCreateRequest> entity = new HttpEntity<>(patientRequest, headers);
 
-            System.out.println("✅ Paciente criado no clients-service.");
+                restTemplate.postForEntity(
+                        clientsServiceUrl + "/patients/internal",
+                        entity,
+                        String.class
+                );
+
+                logger.info("✅ Paciente criado no clients-service (userId Keycloak = {}).", keycloakUserId);
+            }
+
+            // 3) devolver token já válido (Keycloak)
+            KeycloakTokenResponse token = keycloakClient.login(request.getEmail(), request.getPassword());
+            return ResponseEntity.ok(new AuthResponse(token.getAccessToken()));
+
+        } catch (Exception e) {
+            logger.error("❌ Erro no register: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError().body("Erro ao registar utilizador: " + e.getMessage());
         }
-
-        return ResponseEntity.ok(new AuthResponse(token));
     }
 
     // ----------------------------------------------------------
-    // LOGIN
+    // LOGIN (Keycloak token)
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody AuthRequest request) {
         try {
-            authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
-            );
-        } catch (AuthenticationException e) {
+            KeycloakTokenResponse token = keycloakClient.login(request.getEmail(), request.getPassword());
+            return ResponseEntity.ok(new AuthResponse(token.getAccessToken()));
+        } catch (Exception e) {
             return ResponseEntity.status(401).body("Credenciais inválidas.");
         }
-
-        User user = userRepository.findByEmail(request.getEmail()).orElseThrow();
-        String token = jwtUtil.generateToken(user);
-        user.setToken(token);
-        userRepository.save(user);
-
-        return ResponseEntity.ok(new AuthResponse(token));
     }
 
     // ----------------------------------------------------------
-    // REGISTO DE MÉDICO (com foto opcional)
-    // REGISTO DE MÉDICO (com foto opcional)
+    // REGISTO DE MÉDICO (Keycloak + doctors-service internal)
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping(value = "/register/physician", consumes = "multipart/form-data")
     public ResponseEntity<?> registerPhysician(
@@ -160,45 +141,34 @@ public class AuthController {
 
         logger.info("➡️ [registerPhysician] Início do registo de médico com email: {}", email);
 
-        try {
-            // 1️⃣ Verificar duplicados
-            if (userRepository.existsByEmail(email)) {
-                logger.warn("⚠️ [registerPhysician] Tentativa de registo com email duplicado: {}", email);
-                return ResponseEntity.badRequest().body("Email já registado.");
-            }
+        if (!isPasswordValid(password)) {
+            return ResponseEntity.badRequest().body("Password inválida.");
+        }
 
-            // 2️⃣ Guardar foto (opcional)
+        try {
+            // 1) Guardar foto (opcional)
             String photoPath = null;
             if (photo != null && !photo.isEmpty()) {
-                logger.debug("🖼️ [registerPhysician] Foto recebida: {}", photo.getOriginalFilename());
-
                 String uploadsDir = System.getProperty("user.dir") + File.separator + uploadDir + File.separator;
                 File dir = new File(uploadsDir);
-                if (!dir.exists()) {
-                    boolean created = dir.mkdirs();
-                    logger.debug("📁 Diretório criado: {}", created);
-                }
+                if (!dir.exists()) dir.mkdirs();
 
                 photoPath = uploadsDir + System.currentTimeMillis() + "_" + photo.getOriginalFilename();
                 photo.transferTo(new File(photoPath));
                 logger.info("📸 [registerPhysician] Foto guardada em {}", photoPath);
-            } else {
-                logger.debug("ℹ️ [registerPhysician] Nenhuma foto enviada.");
             }
 
-            // 3️⃣ Criar o User no auth-service
-            User user = User.builder()
-                    .email(email)
-                    .password(passwordEncoder.encode(password))
-                    .role(Role.PHYSICIAN)
-                    .build();
+            // 2) Criar user no Keycloak com role PHYSICIAN
+            String keycloakUserId = keycloakClient.createUser(
+                    email,
+                    name,
+                    password,
+                    mapRoleToKeycloak(Role.PHYSICIAN)
+            );
 
-            userRepository.save(user);
-            logger.info("✅ [registerPhysician] User criado com ID {}", user.getId());
-
-            // 4️⃣ Criar o PhysicianCreateRequest
+            // 3) Criar no doctors-service
             PhysicianCreateRequest physicianRequest = PhysicianCreateRequest.builder()
-                    .userId(user.getId())
+                    .userId(keycloakUserId)
                     .name(name)
                     .specialty(specialty)
                     .contact(contact)
@@ -206,17 +176,13 @@ public class AuthController {
                     .photoPath(photoPath)
                     .build();
 
-            logger.debug("📦 [registerPhysician] Dados enviados para doctors-service: {}", physicianRequest);
-
-            // 5️⃣ Adicionar o header interno (X-INTERNAL-KEY)
             HttpHeaders headers = new HttpHeaders();
-            headers.set("X-INTERNAL-KEY", internalApiKey);// Usa o mesmo valor do application.properties
+            headers.set("X-INTERNAL-KEY", internalApiKey);
+            headers.setContentType(MediaType.APPLICATION_JSON);
+
             HttpEntity<PhysicianCreateRequest> entity = new HttpEntity<>(physicianRequest, headers);
 
             String url = doctorsServiceUrl + "/physicians/internal";
-            logger.info("🌐 [registerPhysician] A enviar POST para {}", url);
-
-            // 6️⃣ Enviar o pedido
             String response = restTemplate.postForObject(url, entity, String.class);
 
             logger.info("📡 [registerPhysician] Resposta do doctors-service: {}", response);
@@ -230,4 +196,5 @@ public class AuthController {
             logger.error("❌ [registerPhysician] Erro geral: {}", e.getMessage(), e);
             return ResponseEntity.internalServerError().body("Erro ao registar médico: " + e.getMessage());
         }
-    }  }
+    }
+}

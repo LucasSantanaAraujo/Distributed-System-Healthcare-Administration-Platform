@@ -21,7 +21,7 @@ public class PatientProjector {
             Patient patient = new Patient();
             patient.setId(event.getAggregateId());
             // Conversões seguras de tipos vindos do JSON Map
-            patient.setUserId(Long.valueOf(p.get("userId").toString()));
+            patient.setUserId(p.get("userId") != null ? p.get("userId").toString() : null);
             patient.setName((String) p.get("name"));
             // Converter String/Long para LocalDate (depende da serialização do Jackson)
             // Assumindo que vem como String ISO ou array, ajusta conforme o teu Jackson config

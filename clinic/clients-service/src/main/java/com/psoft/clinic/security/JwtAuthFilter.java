@@ -30,41 +30,56 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                                     FilterChain filterChain)
             throws ServletException, IOException {
 
+        // ✅ 1) Se já existe autenticação (ex: InternalApiKeyFilter), não mexas
+        if (SecurityContextHolder.getContext().getAuthentication() != null) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        // ✅ 2) Se for chamada interna (tem X-INTERNAL-KEY), ignora JWT
+        String internalKey = request.getHeader("X-INTERNAL-KEY");
+        if (internalKey != null && !internalKey.isBlank()) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
         String authHeader = request.getHeader("Authorization");
 
         try {
-            if (authHeader != null && authHeader.startsWith("Bearer ")) {
-                String token = authHeader.substring(7);
-                System.out.println("🎟️ Token recebido: " + token);
+            // ✅ 3) Se não há Bearer token, deixa passar (SecurityConfig decide se precisa)
+            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+                filterChain.doFilter(request, response);
+                return;
+            }
 
-                if (jwtUtil.validateToken(token)) {
-                    System.out.println("✅ Token válido!");
+            String token = authHeader.substring(7);
+            System.out.println("🎟️ Token recebido: " + token);
 
-                    String email = jwtUtil.getEmailFromToken(token);
-                    String role = jwtUtil.getRoleFromToken(token);
+            if (jwtUtil.validateToken(token)) {
+                System.out.println("✅ Token válido!");
 
-                    System.out.println("📧 Email extraído: " + email);
-                    System.out.println("🧩 Role extraída do token: " + role);
+                String email = jwtUtil.getEmailFromToken(token);
+                String role = jwtUtil.getRoleFromToken(token);
 
-                    String authority = role.startsWith("ROLE_") ? role : "ROLE_" + role;
-                    System.out.println("🔐 Autoridade final atribuída: " + authority);
+                System.out.println("📧 Email extraído: " + email);
+                System.out.println("🧩 Role extraída do token: " + role);
 
-                    List<SimpleGrantedAuthority> authorities =
-                            List.of(new SimpleGrantedAuthority(authority));
+                String authority = role.startsWith("ROLE_") ? role : "ROLE_" + role;
+                System.out.println("🔐 Autoridade final atribuída: " + authority);
 
-                    User user = new User(email, "", authorities);
+                List<SimpleGrantedAuthority> authorities =
+                        List.of(new SimpleGrantedAuthority(authority));
 
-                    UsernamePasswordAuthenticationToken auth =
-                            new UsernamePasswordAuthenticationToken(user, null, authorities);
-                    auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                User user = new User(email, "", authorities);
 
-                    SecurityContextHolder.getContext().setAuthentication(auth);
-                    System.out.println("✅ Utilizador autenticado no SecurityContext.");
-                } else {
-                    System.out.println("❌ Token inválido!");
-                }
+                UsernamePasswordAuthenticationToken auth =
+                        new UsernamePasswordAuthenticationToken(user, null, authorities);
+                auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+
+                SecurityContextHolder.getContext().setAuthentication(auth);
+                System.out.println("✅ Utilizador autenticado no SecurityContext.");
             } else {
-                System.out.println("⚠️ Nenhum header Authorization encontrado!");
+                System.out.println("❌ Token inválido!");
             }
         } catch (Exception e) {
             System.out.println("⚠️ Erro ao processar JWT: " + e.getMessage());

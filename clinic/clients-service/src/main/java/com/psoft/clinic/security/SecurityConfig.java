@@ -24,7 +24,12 @@ public class SecurityConfig {
                 .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/h2-console/**", "/actuator/**").permitAll()
-                        .requestMatchers("/patients/**").hasAnyRole("INTERNAL", "ADMIN", "PATIENT")
+
+                        // ✅ internal endpoint: não exige JWT/roles aqui
+                        .requestMatchers("/patients/internal").permitAll()
+
+                        // resto do domínio com JWT/roles normais
+                        .requestMatchers("/patients/**").hasAnyRole("ADMIN", "PATIENT")
                         .anyRequest().authenticated()
                 )
                 .headers(headers -> headers.frameOptions(frame -> frame.disable()))
@@ -33,4 +38,5 @@ public class SecurityConfig {
 
         return http.build();
     }
+
 }

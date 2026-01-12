@@ -10,7 +10,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class PhysicianCreateRequest {
-    private Long userId;
+    private String userId;
     private String name;
     private String specialty;
     private String contact;

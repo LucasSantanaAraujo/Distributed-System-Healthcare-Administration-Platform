@@ -1,0 +1,59 @@
+@startuml
+title SD01 - Autenticação e Registo de Utilizadores
+
+actor "User/Admin" as User
+participant "AuthController" as Auth
+participant "AuthDB" as AuthDB
+participant "ClientsService" as ClientSvc
+participant "DoctorsService" as DoctorSvc
+participant "JwtUtil" as JWT
+
+group Login [POST /auth/login]
+    User -> Auth : Envia credenciais (email, password)
+    activate Auth
+    Auth -> AuthDB : findByEmail()
+    Auth -> Auth : authenticationManager.authenticate()
+
+    alt Credenciais Válidas
+        Auth -> JWT : generateToken(user)
+        JWT --> Auth : token
+        Auth -> AuthDB : save(user com token)
+        Auth --> User : 200 OK (Token JWT)
+    else Inválidas
+        Auth --> User : 401 Unauthorized
+    end
+    deactivate Auth
+end
+
+group Registo Paciente [POST /auth/register]
+    User -> Auth : Dados Paciente
+    activate Auth
+    Auth -> AuthDB : save(User ROLE_PATIENT)
+
+    Auth -> ClientSvc : POST /patients/internal\n(Header: X-INTERNAL-KEY)
+    activate ClientSvc
+    note right: Comunicação Síncrona\n(RestTemplate)
+    ClientSvc -> ClientSvc : createPatientInternal()
+    ClientSvc --> Auth : 200 OK
+    deactivate ClientSvc
+
+    Auth --> User : 200 OK (Token)
+    deactivate Auth
+end
+
+group Registo Médico (Admin) [POST /auth/register/physician]
+    User -> Auth : Dados Médico + Foto (Multipart)
+    activate Auth
+    Auth -> Auth : Guardar Foto em Disco
+    Auth -> AuthDB : save(User ROLE_PHYSICIAN)
+
+    Auth -> DoctorSvc : POST /physicians/internal\n(Header: X-INTERNAL-KEY)
+    activate DoctorSvc
+    DoctorSvc -> DoctorSvc : createPhysicianInternal()
+    DoctorSvc --> Auth : 200 OK
+    deactivate DoctorSvc
+
+    Auth --> User : 200 OK
+    deactivate Auth
+end
+@enduml

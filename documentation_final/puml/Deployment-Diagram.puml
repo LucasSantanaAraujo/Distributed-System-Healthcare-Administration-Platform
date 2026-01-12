@@ -1,0 +1,43 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Deployment.puml
+
+title Diagrama de Implantação - Kubernetes Cluster (Clinic Namespace)
+
+Deployment_Node(user_comp, "Computador do Utilizador", "Browser") {
+    Container(spa, "Single Page App", "React")
+}
+
+Deployment_Node(cloud, "Cloud / On-Premise", "Kubernetes Cluster") {
+    Deployment_Node(ingress, "Ingress Controller / Load Balancer", "Nginx") {
+        Container(lb, "Load Balancer", "Encaminha tráfego :80 -> Serviços")
+    }
+
+    Deployment_Node(node1, "Worker Node 1") {
+        Container(auth_pod, "Auth Pod", "Docker Container :8081")
+        Container(clients_pod, "Clients Pod", "Docker Container :8080")
+    }
+
+    Deployment_Node(node2, "Worker Node 2") {
+        Container(doctors_pod, "Doctors Pod", "Docker Container :8080")
+        Container(app_pod, "Appointments Pod", "Docker Container :8080")
+    }
+
+    Deployment_Node(db_node, "Database Node (External/Cloud)", "Supabase") {
+        ContainerDb(postgres, "PostgreSQL", "Port 6543 (Transaction Pooler)")
+    }
+}
+
+Rel(spa, lb, "HTTPS")
+Rel(lb, auth_pod, "Rota /auth")
+Rel(lb, clients_pod, "Rota /patients")
+Rel(lb, doctors_pod, "Rota /physicians")
+
+Rel(auth_pod, clients_pod, "Rede Interna K8s (ClusterIP)")
+Rel(app_pod, doctors_pod, "Rede Interna K8s (ClusterIP)")
+
+Rel(auth_pod, postgres, "JDBC (SSL)")
+Rel(clients_pod, postgres, "JDBC (SSL)")
+Rel(doctors_pod, postgres, "JDBC (SSL)")
+Rel(app_pod, postgres, "JDBC (SSL)")
+
+@enduml

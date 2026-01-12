@@ -1,0 +1,28 @@
+@startuml
+title SD03 - Registar Indisponibilidade (Event-Driven)
+
+actor "Admin" as Admin
+participant "PhysicianController" as PhyCtrl
+queue "RabbitMQ" as Broker
+participant "AppointmentsService" as AppSvc
+
+Admin -> PhyCtrl : POST /physicians/unavailable\n(id, reason, dates)
+activate PhyCtrl
+
+PhyCtrl -> PhyCtrl : Criar Evento\nPhysicianUnavailableEvent
+
+PhyCtrl -> Broker : convertAndSend(Exchange, Event)
+activate Broker
+note right: Publicação Assíncrona
+
+PhyCtrl --> Admin : 200 OK "Indisponibilidade enviada"
+deactivate PhyCtrl
+
+group Processamento Assíncrono (Background)
+    Broker -> AppSvc : @RabbitListener consome Evento
+    activate AppSvc
+    AppSvc -> AppSvc : Bloquear horário na agenda
+    deactivate AppSvc
+    deactivate Broker
+end
+@enduml

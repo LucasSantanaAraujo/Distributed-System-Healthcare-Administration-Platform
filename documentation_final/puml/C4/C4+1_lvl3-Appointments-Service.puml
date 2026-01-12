@@ -1,0 +1,36 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+title Diagrama de Componentes - Appointments Service
+
+Container(web_ui, "Web UI", "React", "Consome a API")
+
+Container_Boundary(app_service, "Appointments Service") {
+    Component(app_controller, "AppointmentController", "Spring REST Controller", "Expõe endpoints de agendamento e administração.")
+    Component(record_controller, "RecordController", "Spring REST Controller", "Gere registos médicos (diagnósticos, receitas).")
+
+    Component(saga_orch, "BookAppointmentSagaOrchestrator", "Saga Pattern", "Coordena a transação distribuída de marcação.")
+    Component(event_store, "AppointmentEventRepository", "Event Sourcing", "Armazena eventos de domínio (Created, Cancelled).")
+
+    Component(repo, "AppointmentRepository", "JPA Repository", "Acesso à base de dados de leitura/escrita.")
+
+    Component(client_feign, "Clients/Doctors Client", "RestTemplate/Feign", "Comunicação com outros microserviços.")
+}
+
+ContainerDb(database, "PostgreSQL", "RDBMS", "Tabelas de Consultas e Eventos")
+
+Rel(web_ui, app_controller, "Chama POST /admin")
+Rel(web_ui, record_controller, "Chama PUT /records")
+
+Rel(app_controller, saga_orch, "Inicia Saga")
+Rel(app_controller, repo, "Lê estado atual")
+Rel(app_controller, event_store, "Lê histórico de eventos")
+
+Rel(saga_orch, client_feign, "Valida Paciente/Médico")
+Rel(saga_orch, repo, "Guarda estado PENDING")
+
+Rel(record_controller, repo, "Atualiza registo clínico")
+Rel(repo, database, "SQL")
+Rel(event_store, database, "SQL")
+
+@enduml

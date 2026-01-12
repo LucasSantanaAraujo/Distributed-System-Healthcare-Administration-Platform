@@ -1,0 +1,65 @@
+@startuml
+!includeurl https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+title HAP - Container Diagram (C4 L2)
+
+' Pessoas
+Person(patient, "Paciente/Cliente", "Usa funcionalidades de marcação e consulta.")
+Person(doctor, "Médico", "Gere consultas e regista notas.")
+Person(admin, "Administrador", "Gere utilizadores/permissões e supervisiona.")
+
+System_Boundary(hap, "HAP (Healthcare Administration Platform)") {
+
+  ' Entrada (edge)
+  Container(ingress, "Nginx Ingress", "Kubernetes Ingress Controller", "Ponto de entrada HTTPS e routing por paths.")
+
+  ' Microserviços
+  Container(auth, "auth-service", "Spring Boot", "Autenticação/Autorização. Emite/valida JWT, roles/scopes.")
+  Container(clients, "clients-service", "Spring Boot", "Gestão de pacientes/clientes.")
+  Container(doctors, "doctors-service", "Spring Boot", "Gestão de médicos e disponibilidade.")
+  Container(appointments, "appointments-service", "Spring Boot", "Marcações/consultas e coordenação de operações entre serviços.")
+  Container(notes, "notes-service", "Spring Boot", "Registos/notes clínicas associadas a consultas.")
+
+  ' Mensageria
+  ContainerQueue(rabbit, "RabbitMQ", "AMQP Broker", "Mensageria assíncrona para eventos e integração (base para Saga/Event-driven).")
+
+  ' Data stores (1 por serviço)
+  ContainerDb(db_auth, "DB auth", "Supabase/Postgres ", "Dados do auth (utilizadores/credenciais/refresh/etc.).")
+  ContainerDb(db_clients, "DB clients", " MongoDB", "Dados de pacientes/clientes.")
+  ContainerDb(db_doctors, "DB doctors", " MongoDB", "Dados de médicos.")
+  ContainerDb(db_appointments, "DB appointments", "Supabase/Postgres ", "Dados de consultas/marcações.")
+  ContainerDb(db_notes, "DB notes", " MongoDB", "Dados de notas clínicas.")
+}
+
+' Acesso externo -> Ingress
+Rel(patient, ingress, "Usa", "HTTPS")
+Rel(doctor, ingress, "Usa", "HTTPS")
+Rel(admin, ingress, "Usa", "HTTPS")
+
+' Ingress -> serviços (routing por paths)
+Rel(ingress, auth, "Encaminha requests (/auth/...)", "HTTPS")
+Rel(ingress, clients, "Encaminha requests (/patients/...)", "HTTPS")
+Rel(ingress, doctors, "Encaminha requests (/physicians/...)", "HTTPS")
+Rel(ingress, appointments, "Encaminha requests (/appointments/...)", "HTTPS")
+Rel(ingress, notes, "Encaminha requests (/records/...)", "HTTPS")
+
+' Serviços -> bases de dados (ownership por microserviço)
+Rel(auth, db_auth, "Lê/Escreve", "SQL/NoSQL")
+Rel(clients, db_clients, "Lê/Escreve", "SQL/NoSQL")
+Rel(doctors, db_doctors, "Lê/Escreve", "SQL/NoSQL")
+Rel(appointments, db_appointments, "Lê/Escreve", "SQL/NoSQL")
+Rel(notes, db_notes, "Lê/Escreve", "SQL/NoSQL")
+
+' Comunicação entre serviços (sync) - típico no teu domínio
+Rel(appointments, clients, "Valida/obtém dados do paciente", "REST/HTTPS")
+Rel(appointments, doctors, "Valida disponibilidade do médico", "REST/HTTPS")
+Rel(appointments, notes, "Cria/obtém notas associadas", "REST/HTTPS")
+
+' Eventos (async)
+Rel(auth, rabbit, "Publica/consome eventos (se aplicável)", "AMQP")
+Rel(clients, rabbit, "Publica/consome eventos", "AMQP")
+Rel(doctors, rabbit, "Publica/consome eventos", "AMQP")
+Rel(appointments, rabbit, "Publica/consome eventos", "AMQP")
+Rel(notes, rabbit, "Publica/consome eventos", "AMQP")
+
+@enduml

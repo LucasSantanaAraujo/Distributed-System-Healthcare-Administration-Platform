@@ -1,0 +1,36 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+title C4 Nível 3 - Componentes do Doctors Service
+
+Container(auth_svc, "Auth Service", "Spring Boot", "Chama criação interna")
+Container(app_svc, "Appointments Service", "Spring Boot", "Consulta médicos e fornece estatísticas")
+ContainerQueue(rabbitmq, "RabbitMQ", "Message Broker", "Eventos de domínio")
+
+Container_Boundary(doctors_service, "Doctors Service") {
+    Component(phys_controller, "PhysicianController", "Spring REST Controller", "Endpoints: /unavailable, /internal, /search")
+
+    Component(seq_gen, "SequenceGeneratorService", "Service", "Gera IDs sequenciais")
+    Component(app_client, "AppointmentsServiceClient", "HTTP Client", "Busca relatórios e rankings ao App Service")
+
+    Component(rabbit_template, "RabbitTemplate", "AMQP Client", "Publica mensagens")
+
+    Component(phys_repo, "PhysicianRepository", "JPA Repository", "Acesso à tabela de médicos")
+}
+
+ContainerDb(doctors_db, "Doctors DB", "PostgreSQL", "Tabela Physicians")
+
+Rel(auth_svc, phys_controller, "POST /internal (Criação)")
+Rel(app_svc, phys_controller, "GET /{id} (Validação)")
+
+Rel(phys_controller, phys_repo, "CRUD Médicos")
+Rel(phys_controller, seq_gen, "Gera ID")
+
+Rel(phys_controller, rabbit_template, "Envia PhysicianUnavailableEvent")
+Rel(rabbit_template, rabbitmq, "Publish")
+
+Rel(phys_controller, app_client, "Pede Stats (Top/Reports)")
+Rel(app_client, app_svc, "GET /admin/...")
+
+Rel(phys_repo, doctors_db, "SQL")
+@enduml

@@ -1,0 +1,33 @@
+@startuml
+title SD10 - Estados e Leitura de Registos
+
+actor "User" as User
+participant "Controllers" as Ctrl
+participant "Repositories" as DB
+
+group Atualizar Estado Consulta [PUT /appointments/{id}/status]
+    User -> Ctrl : updateStatus(id, "CANCELLED")
+    activate Ctrl
+    Ctrl -> DB : findById(id)
+    alt Existe
+        Ctrl -> Ctrl : setStatus(CANCELLED)
+        Ctrl -> DB : save(appointment)
+        Ctrl --> User : 200 OK "Atualizada"
+    else 404
+        Ctrl --> User : 404 Not Found
+    end
+    deactivate Ctrl
+end
+
+group Ler Notas Médicas [GET /records/{id}]
+    User -> Ctrl : GET /records/{id}
+    activate Ctrl
+    Ctrl -> DB : findByAppointmentId(id)
+    alt Existe
+        Ctrl --> User : 200 OK (Diagnosis, Treatment...)
+    else 404
+        Ctrl --> User : 404 Not Found
+    end
+    deactivate Ctrl
+end
+@enduml

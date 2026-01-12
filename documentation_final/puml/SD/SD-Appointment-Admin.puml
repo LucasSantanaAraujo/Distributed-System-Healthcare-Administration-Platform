@@ -1,0 +1,47 @@
+@startuml
+title Cenário: Saga de Marcação de Consulta (Admin)
+
+actor Admin
+participant "AppointmentController" as AppCtrl
+participant "SagaOrchestrator" as Saga
+participant "Database" as DB
+participant "ClientsService" as Clients
+participant "DoctorsService" as Doctors
+
+Admin -> AppCtrl : POST /appointments/admin
+activate AppCtrl
+
+AppCtrl -> Saga : start(BookAppointmentCommand)
+activate Saga
+
+group Transação Distribuída (Saga)
+    Saga -> DB : Criar Consulta (Status: PENDING)
+    activate DB
+    DB --> Saga : Saved
+    deactivate DB
+
+    par Validação Paralela
+        Saga -> Clients : getPatientById()
+        Saga -> Doctors : getPhysicianById()
+    end
+
+    alt Sucesso na Validação
+        Saga -> DB : Atualizar Status: CONFIRMED
+        activate DB
+        DB --> Saga : Updated
+        deactivate DB
+        Saga --> AppCtrl : SagaResult(Success)
+    else Falha (ex: Médico/Paciente não existe)
+        Saga -> DB : Atualizar Status: REJECTED (Compensação)
+        activate DB
+        DB --> Saga : Updated
+        deactivate DB
+        Saga --> AppCtrl : SagaResult(Error)
+    end
+end
+
+AppCtrl --> Admin : 200 OK (AppointmentResponse)
+deactivate Saga
+deactivate AppCtrl
+
+@enduml

@@ -1,0 +1,48 @@
+@startuml
+title SD02 - Marcação de Consulta (Saga Pattern)
+
+actor "Admin" as Admin
+participant "AppointmentController" as AppCtrl
+participant "SagaOrchestrator" as Saga
+participant "AppRepository" as AppDB
+participant "ClientsService" as ClientSvc
+participant "DoctorsService" as DoctorSvc
+
+Admin -> AppCtrl : POST /appointments/admin\n(patientId, physicianId, data)
+activate AppCtrl
+
+AppCtrl -> Saga : start(BookAppointmentCommand)
+activate Saga
+
+group Transação Distribuída
+    Saga -> AppDB : Criar Consulta (Status: PENDING)
+    activate AppDB
+    AppDB --> Saga : Saved
+    deactivate AppDB
+
+    par Validação Paralela
+        Saga -> ClientSvc : GET /patients/{id}
+        activate ClientSvc
+        ClientSvc --> Saga : 200 OK (Existe)
+        deactivate ClientSvc
+
+        Saga -> DoctorSvc : GET /physicians/{id}
+        activate DoctorSvc
+        DoctorSvc --> Saga : 200 OK (Existe)
+        deactivate DoctorSvc
+    end
+
+    alt Validações Sucesso
+        Saga -> AppDB : Atualizar Status: CONFIRMED
+        Saga --> AppCtrl : SagaResult(Success)
+    else Falha (ex: Médico não existe)
+        Saga -> AppDB : Atualizar Status: REJECTED\n(Compensação)
+        Saga --> AppCtrl : SagaResult(Error)
+    end
+end
+
+AppCtrl -> AppCtrl : Obter Nomes (Enriquecimento)
+AppCtrl --> Admin : 200 OK (JSON Consulta)
+deactivate Saga
+deactivate AppCtrl
+@enduml

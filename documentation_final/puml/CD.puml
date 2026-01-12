@@ -1,0 +1,80 @@
+@startuml
+title Diagrama de Classes - Modelo de Domínio HAP
+
+' Estilo para ficar mais legível
+hide circle
+skinparam classAttributeIconSize 0
+
+class User {
+    + Long id
+    + String email
+    + String password
+    + Role role
+    + String token
+}
+
+class Patient {
+    + Long id
+    + String userId
+    + String name
+    + LocalDate birthDate
+    + String phone
+    + String insuranceInfo
+    + String healthConcerns
+}
+
+class Physician {
+    + Long id
+    + String userId
+    + String name
+    + String specialty
+    + String contact
+    + String schedule
+    + String photoPath
+}
+
+class Appointment {
+    + Long id
+    + Long patientId
+    + Long physicianId
+    + LocalDateTime dateTime
+    + String reason
+    + AppointmentStatus status
+    + LocalDateTime recordCreatedAt
+}
+
+class AppointmentRecord {
+    + Long appointmentId
+    + String diagnosis
+    + String treatment
+    + String prescription
+    + LocalDateTime createdAt
+    + LocalDateTime updatedAt
+}
+
+enum AppointmentStatus {
+    PENDING
+    CONFIRMED
+    CANCELLED
+    RESCHEDULED
+    REJECTED
+}
+
+enum Role {
+    ADMIN
+    PATIENT
+    PHYSICIAN
+}
+
+' Relações Lógicas (mesmo que distribuídas)
+User "1" -- "0..1" Patient : é perfil de >
+User "1" -- "0..1" Physician : é perfil de >
+User -- Role
+
+Patient "1" -- "0..*" Appointment : marca >
+Physician "1" -- "0..*" Appointment : realiza >
+
+Appointment "1" -- "0..1" AppointmentRecord : tem >
+Appointment -- AppointmentStatus
+
+@enduml

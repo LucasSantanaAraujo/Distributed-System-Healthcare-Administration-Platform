@@ -1,0 +1,30 @@
+@startuml
+title Cenário: Registo de Paciente (Auth Service Facade)
+
+actor User
+participant "AuthController" as Auth
+participant "UserRepository" as UserRepo
+participant "ClientsService" as ClientSvc
+
+User -> Auth : POST /register (dados + Role PATIENT)
+activate Auth
+
+Auth -> UserRepo : save(User)
+activate UserRepo
+UserRepo --> Auth : User Created
+deactivate UserRepo
+
+Auth -> Auth : generateToken()
+
+alt Role == PATIENT
+    Auth -> ClientSvc : POST /patients/internal (header: X-INTERNAL-KEY)
+    activate ClientSvc
+    note right: Chamada síncrona via RestTemplate
+    ClientSvc --> Auth : 200 OK
+    deactivate ClientSvc
+end
+
+Auth --> User : 200 OK (JWT Token)
+deactivate Auth
+
+@enduml

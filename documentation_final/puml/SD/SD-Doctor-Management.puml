@@ -1,0 +1,39 @@
+@startuml
+title SD08 - Gestão de Médicos (Atualização e Leitura)
+
+actor "Admin" as Admin
+participant "PhysicianController" as PhyCtrl
+participant "PhysicianRepository" as PhyDB
+
+group Atualizar Médico [PUT /physicians/{id}]
+    Admin -> PhyCtrl : PUT /physicians/{id} (novos dados)
+    activate PhyCtrl
+
+    PhyCtrl -> PhyDB : findById(id)
+    activate PhyDB
+
+    alt Existe
+        PhyDB --> PhyCtrl : Physician
+        PhyCtrl -> PhyCtrl : Atualizar campos (Nome, Contacto, etc.)
+        PhyCtrl -> PhyDB : save(physician)
+        PhyCtrl --> Admin : 200 OK "Atualizado com sucesso"
+    else Não Encontrado
+        PhyDB --> PhyCtrl : Empty
+        deactivate PhyDB
+        PhyCtrl --> Admin : 404 Not Found
+    end
+    deactivate PhyCtrl
+end
+
+group Obter Médico por ID [GET /physicians/{id}]
+    Admin -> PhyCtrl : GET /physicians/{id}
+    activate PhyCtrl
+    PhyCtrl -> PhyDB : findById(id)
+    alt Existe
+        PhyCtrl --> Admin : 200 OK (PhysicianResponse)
+    else 404
+        PhyCtrl --> Admin : 404 Not Found
+    end
+    deactivate PhyCtrl
+end
+@enduml

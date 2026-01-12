@@ -1,0 +1,36 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+title C4 Nível 3 - Componentes do Auth Service
+
+Container(web_app, "Web UI", "React", "Envia credenciais")
+Container(clients_svc, "Clients Service", "Spring Boot", "Recebe criação de paciente")
+Container(doctors_svc, "Doctors Service", "Spring Boot", "Recebe criação de médico")
+
+Container_Boundary(auth_service, "Auth Service") {
+    Component(auth_controller, "AuthController", "Spring REST Controller", "Endpoints: /login, /register, /register/physician")
+
+    Component(security_mgr, "AuthenticationManager", "Spring Security", "Valida credenciais (Username/Password)")
+    Component(jwt_util, "JwtUtil", "Component", "Gera e valida tokens JWT")
+    Component(encoder, "PasswordEncoder", "BCrypt", "Encripta passwords")
+
+    Component(user_repo, "UserRepository", "JPA Repository", "Acesso à tabela de utilizadores")
+
+    Component(rest_template, "RestTemplate", "Spring Client", "Faz chamadas HTTP síncronas a outros serviços")
+}
+
+ContainerDb(auth_db, "Auth DB", "PostgreSQL", "Tabela Users")
+
+Rel(web_app, auth_controller, "POST /login, /register")
+
+Rel(auth_controller, security_mgr, "Autentica")
+Rel(auth_controller, jwt_util, "Gera Token")
+Rel(auth_controller, encoder, "Hash Password")
+Rel(auth_controller, user_repo, "Guarda User")
+
+Rel(auth_controller, rest_template, "Orquestra criação de perfil")
+Rel(rest_template, clients_svc, "POST /internal (Paciente)")
+Rel(rest_template, doctors_svc, "POST /internal (Médico)")
+
+Rel(user_repo, auth_db, "SQL")
+@enduml

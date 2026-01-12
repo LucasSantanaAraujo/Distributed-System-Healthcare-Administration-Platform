@@ -1,0 +1,21 @@
+@startuml
+title SD06 - Pesquisa de Médicos (Paciente)
+
+actor "Paciente" as Patient
+participant "PhysicianController" as PhyCtrl
+participant "PhysicianRepository" as PhyDB
+
+Patient -> PhyCtrl : GET /physicians/search?query=cardio
+activate PhyCtrl
+
+PhyCtrl -> PhyDB : findByNameOrSpecialty(query)
+activate PhyDB
+PhyDB --> PhyCtrl : List<Physician>
+deactivate PhyDB
+
+PhyCtrl -> PhyCtrl : Map to DTO (PhysicianResponse)
+note right: Filtra dados sensíveis\n(ex: ID interno, configs)
+
+PhyCtrl --> Patient : 200 OK (Lista JSON)
+deactivate PhyCtrl
+@enduml

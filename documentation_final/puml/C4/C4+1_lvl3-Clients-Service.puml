@@ -1,0 +1,29 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+title C4 Nível 3 - Componentes do Clients Service
+
+Container(auth_svc, "Auth Service", "Spring Boot", "Chama criação interna")
+Container(app_svc, "Appointments Service", "Spring Boot", "Consulta dados do paciente")
+
+Container_Boundary(clients_service, "Clients Service") {
+    Component(patient_controller, "PatientController", "Spring REST Controller", "Endpoints: /internal, /search, /{id}")
+
+    Component(saga_orch, "CreatePatientSagaOrchestrator", "Saga Pattern", "Gere o ciclo de vida da criação do paciente")
+    Component(seq_gen, "SequenceGeneratorService", "Service", "Gera IDs sequenciais únicos")
+
+    Component(patient_repo, "PatientRepository", "JPA Repository", "Acesso à tabela de pacientes")
+}
+
+ContainerDb(clients_db, "Clients DB", "PostgreSQL", "Tabela Patients")
+
+Rel(auth_svc, patient_controller, "POST /internal")
+Rel(app_svc, patient_controller, "GET /{id}")
+
+Rel(patient_controller, saga_orch, "Inicia Saga (Criação)")
+Rel(patient_controller, patient_repo, "Leitura (GET)")
+Rel(patient_controller, seq_gen, "Gera ID")
+
+Rel(saga_orch, patient_repo, "Grava Paciente")
+Rel(patient_repo, clients_db, "SQL")
+@enduml

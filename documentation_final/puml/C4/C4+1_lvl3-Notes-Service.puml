@@ -1,0 +1,32 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+title C4 Nível 3 - Componentes do Notes/Records Service
+
+Container(web_app, "Web UI", "Médico edita notas")
+Container(app_svc, "Appointments Service", "Spring Boot", "Fonte de verdade dos agendamentos")
+ContainerQueue(rabbitmq, "RabbitMQ", "Message Broker", "Filas: notes.test, app.events")
+
+Container_Boundary(notes_service, "Notes Service") {
+    Component(rec_controller, "RecordController", "Spring REST Controller", "Endpoints: /records/appointment/{id}, /records/{id}")
+
+    Component(app_client, "AppointmentsServiceClient", "Feign/HTTP Client", "Valida se a consulta existe antes de criar registo (sync)")
+
+    Component(rec_repo, "AppointmentRecordRepository", "JPA Repository", "Acesso à tabela de registos médicos")
+
+    Component(rabbit_listener, "RabbitListener", "AMQP Consumer", "Processa mensagens assíncronas (ex: logs, auditoria)")
+}
+
+ContainerDb(notes_db, "Notes DB", "PostgreSQL", "Tabela AppointmentRecords")
+
+Rel(web_app, rec_controller, "PUT /appointment/{id}", "JSON")
+Rel(web_app, rec_controller, "GET /{id}", "JSON")
+
+Rel(rec_controller, app_client, "GET /appointments/{id}")
+Rel(app_client, app_svc, "HTTP/REST")
+
+Rel(rec_controller, rec_repo, "Persiste Registo")
+Rel(rec_repo, notes_db, "SQL")
+
+Rel(rabbitmq, rabbit_listener, "Consome", "AMQP")
+@enduml

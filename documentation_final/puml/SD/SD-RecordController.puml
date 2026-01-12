@@ -1,0 +1,39 @@
+@startuml
+title SD04 - Gestão de Registos Médicos (Upsert)
+
+actor "Médico" as Doc
+participant "RecordController" as RecCtrl
+participant "AppointmentsClient" as AppClient
+participant "RecordRepository" as RecDB
+
+Doc -> RecCtrl : PUT /records/appointment/{id}\n(diagnóstico, receita)
+activate RecCtrl
+
+RecCtrl -> AppClient : getAppointment(id)
+activate AppClient
+note right: Valida se a consulta existe\nantes de criar registo
+alt Consulta Existe
+    AppClient --> RecCtrl : AppointmentDTO
+    deactivate AppClient
+
+    RecCtrl -> RecDB : findByAppointmentId(id)
+    activate RecDB
+    RecDB --> RecCtrl : Optional<Record>
+    deactivate RecDB
+
+    alt Registo Já Existe
+        RecCtrl -> RecCtrl : Atualizar campos
+    else Novo Registo
+        RecCtrl -> RecCtrl : Criar novo objeto
+    end
+
+    RecCtrl -> RecDB : save(Record)
+    RecCtrl --> Doc : 200 OK "Detalhes atualizados"
+
+else Consulta Não Encontrada
+    AppClient --> RecCtrl : null / 404
+    RecCtrl --> Doc : 400 Bad Request
+end
+
+deactivate RecCtrl
+@enduml

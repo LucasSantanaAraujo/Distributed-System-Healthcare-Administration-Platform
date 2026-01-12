@@ -1,0 +1,24 @@
+@startuml
+title SD05 - Relatórios Administrativos (Agregação)
+
+actor "Admin" as Admin
+participant "AppointmentController" as AppCtrl
+participant "AppointmentRepository" as AppDB
+
+Admin -> AppCtrl : GET /appointments/admin/statistics/age-groups
+activate AppCtrl
+
+AppCtrl -> AppDB : findAll()
+activate AppDB
+AppDB --> AppCtrl : List<Appointment>
+deactivate AppDB
+
+loop Para cada consulta
+    AppCtrl -> AppCtrl : Calcular Idade Paciente\n(Baseado em birthDate)
+    AppCtrl -> AppCtrl : Agrupar por Faixa Etária\n(<18, 18-30, 30-50, >50)
+    AppCtrl -> AppCtrl : Calcular Duração Média
+end
+
+AppCtrl --> Admin : 200 OK (JSON Estatísticas)
+deactivate AppCtrl
+@enduml

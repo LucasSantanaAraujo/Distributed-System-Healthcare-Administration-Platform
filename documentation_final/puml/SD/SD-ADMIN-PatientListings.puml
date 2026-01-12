@@ -1,0 +1,42 @@
+@startuml
+title SD07 - Gestão de Pacientes (Leitura e Pesquisa Admin)
+
+actor "Admin" as Admin
+participant "PatientController" as PatCtrl
+participant "PatientRepository" as PatDB
+
+group Listar Todos [GET /patients]
+    Admin -> PatCtrl : GET /patients
+    activate PatCtrl
+    PatCtrl -> PatDB : findAll()
+    activate PatDB
+    PatDB --> PatCtrl : List<Patient>
+    deactivate PatDB
+    PatCtrl -> PatCtrl : Map to PatientResponse DTO
+    PatCtrl --> Admin : 200 OK (JSON List)
+    deactivate PatCtrl
+end
+
+group Pesquisar por Nome [GET /patients/search]
+    Admin -> PatCtrl : GET /patients/search?name=...
+    activate PatCtrl
+    PatCtrl -> PatDB : findByNameContaining(name)
+    activate PatDB
+    PatDB --> PatCtrl : List<Patient>
+    deactivate PatDB
+    PatCtrl --> Admin : 200 OK (JSON List)
+    deactivate PatCtrl
+end
+
+group Obter por ID [GET /patients/{id}]
+    Admin -> PatCtrl : GET /patients/{id}
+    activate PatCtrl
+    PatCtrl -> PatDB : findById(id)
+    alt Existe
+        PatCtrl --> Admin : 200 OK (PatientResponse)
+    else 404
+        PatCtrl --> Admin : 404 Not Found
+    end
+    deactivate PatCtrl
+end
+@enduml

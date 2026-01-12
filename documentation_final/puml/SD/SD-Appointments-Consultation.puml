@@ -1,0 +1,45 @@
+@startuml
+title SD09 - Leitura de Consultas (Com Enriquecimento de Dados)
+
+actor "Admin" as Admin
+participant "AppointmentController" as AppCtrl
+participant "AppointmentRepository" as AppDB
+participant "ClientsService" as ClientSvc
+participant "DoctorsService" as DoctorSvc
+
+group Listar Próximas [GET /appointments/admin/upcoming]
+    Admin -> AppCtrl : GET /admin/upcoming
+    activate AppCtrl
+
+    AppCtrl -> AppDB : findByDateTimeAfter(...)
+    activate AppDB
+    AppDB --> AppCtrl : List<Appointment> (IDs apenas)
+    deactivate AppDB
+
+    loop Para cada Consulta
+        par Enriquecimento de Dados (Chamadas Remotas)
+            AppCtrl -> ClientSvc : getPatientById(patientId)
+            AppCtrl -> DoctorSvc : getPhysicianById(physicianId)
+        end
+        AppCtrl -> AppCtrl : Substituir IDs por Nomes (PatientName, PhysicianName)
+    end
+
+    AppCtrl --> Admin : 200 OK (Lista Detalhada)
+    deactivate AppCtrl
+end
+
+group Obter Consulta por ID [GET /appointments/{id}]
+    Admin -> AppCtrl : GET /appointments/{id}
+    activate AppCtrl
+    AppCtrl -> AppDB : findById(id)
+
+    alt Encontrada
+        AppCtrl -> ClientSvc : getPatientById(patientId)
+        AppCtrl -> DoctorSvc : getPhysicianById(physicianId)
+        AppCtrl --> Admin : 200 OK (AppointmentResponse Completo)
+    else 404
+        AppCtrl --> Admin : 404 Not Found
+    end
+    deactivate AppCtrl
+end
+@enduml
